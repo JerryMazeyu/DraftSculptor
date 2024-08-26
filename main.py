@@ -59,6 +59,7 @@ class ImageLabel(QLabel):
             self.pixmap = QPixmap(self.imgp)
             self.scaled_pixmap = self.pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
             self.setPixmap(self.scaled_pixmap)
+            self.setAlignment(Qt.AlignCenter)
             self.set_attr()
         else:
             pass
@@ -91,7 +92,7 @@ class ImageLabel(QLabel):
     
     def _check_oob(self, x, y):
         if self.case:
-            if y >= self.oy and y <= self.hb - self.oy:
+            if y >= self.oy and y <= self.h_b - self.oy:
                 return True
             else:
                 return False
@@ -112,6 +113,9 @@ class ImageLabel(QLabel):
                     self.y_star = y
                 self.x_final = self.x_star * self.r_img
                 self.y_final = self.y_star * self.r_img
+            else:
+                self.x_final = -1
+                self.y_final = -1
         else:
             self.x_final = -1
             self.y_final = -1
@@ -252,6 +256,7 @@ class ImageEditor(QMainWindow):
         file_name, _ = QFileDialog.getOpenFileName(self, "Select Image", default_folder, "Images (*.png *.jpg *.jpeg *.bmp *.gif)")
         if file_name:
             self.image_label.imgp = file_name
+            self.img = file_name
     
     def import_config(self):
         default_folder = pjoin(root(), 'configs')
