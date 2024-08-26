@@ -1,55 +1,173 @@
+import os
+try:
+    os.path.append('/Users/mazeyu/NewEra/DraftSculptor')
+except:
+    pass
 import sys
+import pandas as pd
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QLabel, QPushButton, 
-                             QLineEdit, QVBoxLayout, QHBoxLayout, QWidget, 
+                             QLineEdit, QVBoxLayout, QHBoxLayout, QWidget,
                              QScrollArea, QGridLayout, QSizePolicy, QFileDialog)
-from PyQt5.QtGui import (QPixmap, QFont)
-from PyQt5.QtCore import Qt
+from PyQt5.QtGui import (QPixmap, QFont, QImage)
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
+from PIL import Image, ImageDraw, ImageFont
+from utils import *
+
+
 
 class ImageLabel(QLabel):
-    def __init__(self, coord_label, parent=None):
+    imageChanged = pyqtSignal()
+    sizeChanged = pyqtSignal()
+    
+    def __init__(self, coord_label, _imgp=None, parent=None):
         super().__init__(parent)
         self.setMouseTracking(True)
         self.coord_label = coord_label
+        self._imgp = _imgp
+        self.set_attr()
+        
+        self.imageChanged.connect(self.update_img)
+        self.sizeChanged.connect(self.update_img)
+    
+    @property
+    def imgp(self):
+        return self._imgp
+    
+    def _load_img(self):
+        try:
+            return Image.open(self.imgp)
+        except:
+            return None
+    
+    @imgp.setter
+    def imgp(self, new_imgp):
+        try:
+            self._imgp = new_imgp
+            self.img = self._load_img()
+            self.imageChanged.emit()
+        except:
+            self._imgp = None
+            self.img = None
+    
+    # def resizeEvent(self, event):
+    #     super().resizeEvent(event)
+    #     self.sizeChanged.emit()
+    
+    @pyqtSlot()
+    def update_img(self):
+        if self._if_load():
+            self.pixmap = QPixmap(self.imgp)
+            self.scaled_pixmap = self.pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.setPixmap(self.scaled_pixmap)
+            self.set_attr()
+        else:
+            pass
+    
+    def set_attr(self):
+        if self._if_load():
+            self._cal_ratio()
+            self._check_case()
+        
+    def _if_load(self):
+        return True if self.imgp else False
+    
+    def _cal_ratio(self):
+        self.w_gt, self.h_gt = self.img.size
+        self.r_gt = self.w_gt / self.h_gt  # w_gt / h_gt
+        self.w_b, self.h_b = self.width(), self.height()
+        self.r_b = self.w_b / self.h_b
+    
+    def _check_case(self):
+        if self.r_gt >= self.r_b:  
+            self.case = True    
+            self.ox = 0             
+            self.oy = (self.h_b - self.w_b / self.r_gt) / 2
+            self.r_img = self.w_gt / self.w_b
+        else:
+            self.case = False
+            self.ox = (self.w_b - self.h_b * self.r_gt) / 2
+            self.oy = 0
+            self.r_img = self.h_gt / self.h_b
+    
+    def _check_oob(self, x, y):
+        if self.case:
+            if y >= self.oy and y <= self.hb - self.oy:
+                return True
+            else:
+                return False
+        else:
+            if x >= self.ox and x <= self.w_b - self.ox:
+                return True
+            else:
+                return False
+    
+    def _get_coord(self, x, y):
+        if self._if_load():
+            if self._check_oob(x, y):
+                if self.case:
+                    self.x_star = x
+                    self.y_star = y - self.oy
+                else:
+                    self.x_star = x - self.ox
+                    self.y_star = y
+                self.x_final = self.x_star * self.r_img
+                self.y_final = self.y_star * self.r_img
+        else:
+            self.x_final = -1
+            self.y_final = -1
+            
+    # def update_scaled_pixmap(self):
+    #     # 根据标签大小重新调整pixmap
+    #     self.scaled_pixmap = self.original_pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+    #     self.setPixmap(self.scaled_pixmap)
 
     def mouseMoveEvent(self, event):
         mouse_position = event.pos()
         x = mouse_position.x()
         y = mouse_position.y()
-        self.coord_label.setText(f"X: {x}, Y: {y}")
+        self._get_coord(x, y)
+        self.coord_label.setText(f"X: {self.x_final}, Y: {self.y_final}")
 
 
 class ImageEditor(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.conf = None
+        self.img = None
         self.initUI()
-
-
+        
     def initUI(self):
         self.setWindowTitle("DraftSculptor")
-        self.setGeometry(100, 100, 800, 600)  # Set size
+        self.setGeometry(100, 100, 1100, 700)  # Set size
 
-        # Main Layout
+
+
+        # =======================Main Layout=======================
         main_layout = QHBoxLayout()
         main_layout.setSpacing(10)  # Main layout space
+
+
 
         # =======================Left Layout=======================
         left_layout = QVBoxLayout()
         left_layout.setSpacing(5) 
         left_layout.setContentsMargins(0, 0, 0, 0)  # No space
 
-        # Coord Label
-        self.coord_label = QLabel(self)
 
-        # Image Label
-        self.image_label = ImageLabel(self.coord_label, self)
-        self.image_label.setFixedSize(400, 600)
+        # =========Coord Label=========
+        self.coord_label = QLabel(self)
+        
+        
+        # =========Image Label=========
+        self.image_label = ImageLabel(self.coord_label, self.img, self)
         self.image_label.setStyleSheet("border: 1px solid black;")
         self.image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
+        
         left_layout.addWidget(self.image_label)
-
         left_layout.addWidget(self.coord_label)
         main_layout.addLayout(left_layout)
+
 
 
         # =======================Right Layout=======================
@@ -57,25 +175,32 @@ class ImageEditor(QMainWindow):
         right_layout.setSpacing(5)  
         right_layout.setContentsMargins(0, 0, 0, 0) # No space
 
-        # Top two buttons
+
+        # =========Top three buttons=========
         button_layout = QHBoxLayout()
         button_layout.setSpacing(5)
         self.import_config_button = QPushButton("导入配置", self)
+        self.save_config_button = QPushButton("保存配置", self)
         self.import_template_button = QPushButton("导入模版", self)
         self.import_template_button.clicked.connect(self.select_image)
+        self.import_config_button.clicked.connect(self.import_config)
         button_layout.addWidget(self.import_config_button)
         button_layout.addWidget(self.import_template_button)
+        button_layout.addWidget(self.save_config_button)
         right_layout.addLayout(button_layout)
 
-        # Detail configs
+
+        # =========Detail configs=========
         self.detail_label = QLabel("详细配置", self)
         right_layout.addWidget(self.detail_label)
 
-        # Scroll part
+
+        # =========Scroll Area=========
         scroll_area = QScrollArea(self)
         scroll_area.setWidgetResizable(True)
 
-        # Widget and layout
+
+        # =========Widget and layout=========
         self.config_widget = QWidget()
         self.config_layout = QGridLayout()
         self.config_layout.setSpacing(5)
@@ -91,25 +216,26 @@ class ImageEditor(QMainWindow):
             self.config_layout.addWidget(label, 0, i, alignment=Qt.AlignTop)
 
         # Example data
-        for row in range(1, 511):
+        for row in range(1, 100):
             for col in range(5):
                 edit = QLineEdit(self)
-                edit.setText(f"Row{row}Col{col+1}")
+                edit.setText(f"Example")
                 self.config_layout.addWidget(edit, row, col, alignment=Qt.AlignTop)
 
         self.config_widget.setLayout(self.config_layout)
         self.config_layout.setRowStretch(self.config_layout.rowCount(), 1)
 
-
         # set scroll part
         scroll_area.setWidget(self.config_widget)
-        scroll_area.setFixedSize(350, 500)  # Scorll size
         right_layout.addWidget(scroll_area)
+        scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
-
-        # Scan & Generate button
+        
+        # =========Scan & Generate button=========
         self.preview_button = QPushButton("预览", self)
         self.generate_button = QPushButton("生成", self)
+        self.preview_button.clicked.connect(self.preview_image)
+
         right_layout.addWidget(self.preview_button)
         right_layout.addWidget(self.generate_button)
 
@@ -120,32 +246,46 @@ class ImageEditor(QMainWindow):
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
 
+
     def select_image(self):
-        # 默认打开的文件夹路径
-        default_folder = r"C:\Users\H3C\WorkSpace\GXC\DraftSculptor\assets\templates"
-
-        # 打开文件对话框，选择图片文件
+        default_folder = pjoin(root(), 'assets', 'templates')
         file_name, _ = QFileDialog.getOpenFileName(self, "Select Image", default_folder, "Images (*.png *.jpg *.jpeg *.bmp *.gif)")
-
         if file_name:
-            # 如果选择了文件，则在标签中显示图片
-            pixmap = QPixmap(file_name)
-            scaled_pixmap = pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self.image_label.setPixmap(scaled_pixmap)
-            # self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-
+            self.image_label.imgp = file_name
     
     def import_config(self):
-        # 导入配置文件逻辑
-        pass
+        default_folder = pjoin(root(), 'configs')
+        file_name, _ = QFileDialog.getOpenFileName(self, "Select File", default_folder, "Excel Files (*.xlsx);;CSV Files (*.csv)")
+        if file_name:
+            df = check_format(file_name)
+            self.conf = df
+            try:
+                if df.empty:
+                    return
+            except:
+                pass
 
-    def import_template(self):
-        # 导入模版逻辑
-        pass
+        # Delete formal content 
+        for i in reversed(range(self.config_layout.count())):
+            if i >= 5:
+                widget_to_remove = self.config_layout.itemAt(i).widget()
+                if widget_to_remove is not None:
+                    widget_to_remove.deleteLater()
+
+        # Show new content
+        for row in range(len(df)):
+            for col, key in enumerate(["文字", "X", "Y", "大小", "字体"]):
+                value = df.iloc[row][key]
+                edit = QLineEdit(self)
+                edit.setText(str(value))
+                self.config_layout.addWidget(edit, row+1, col, alignment=Qt.AlignTop)
+
 
     def preview_image(self):
-        # 预览图像逻辑
-        pass
+        assert self.img is not None, "self.img must be not None"
+        assert self.conf is not None, "self.conf must be not None"
+        draw(self.img, self.conf)
+        
 
     def show_image():
         pass
