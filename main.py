@@ -234,7 +234,17 @@ class ImageEditor(QMainWindow):
         scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         
-        # =========Scan & Generate button=========
+        # =========Add & Remove row button========= 
+        add_remove_layout = QHBoxLayout()
+        self.add_row_button = QPushButton("增加一行", self)
+        self.add_row_button.clicked.connect(self.add_row)
+        self.remove_row_button = QPushButton("删除最后一行", self)
+        self.remove_row_button.clicked.connect(self.remove_row)
+        add_remove_layout.addWidget(self.add_row_button)
+        add_remove_layout.addWidget(self.remove_row_button)
+        right_layout.addLayout(add_remove_layout)
+
+        # =========Scan & Generate button=========  
         preview_layout = QHBoxLayout()
         self.preview_button = QPushButton("预览", self)
         self.back_button = QPushButton("还原", self)
@@ -246,7 +256,6 @@ class ImageEditor(QMainWindow):
         preview_layout.addWidget(self.preview_button)
         preview_layout.addWidget(self.back_button)
         right_layout.addLayout(preview_layout)
-        # right_layout.addWidget(self.preview_button)
         right_layout.addWidget(self.generate_button)
 
         main_layout.addLayout(right_layout)
@@ -289,7 +298,12 @@ class ImageEditor(QMainWindow):
                 value = df.iloc[row][key]
                 edit = QLineEdit(self)
                 edit.setText(str(value))
+                edit.textChanged.connect(lambda text, row=row, col=key: self.update_conf(text, row, col))
                 self.config_layout.addWidget(edit, row+1, col, alignment=Qt.AlignTop)
+    
+    def update_conf(self, text, row, col):
+        """Update the self.conf DataFrame when text changes."""
+        self.conf.at[row, col] = text
 
     def save_config(self):
         columns = ["文字", "X", "Y", "大小", "字体"]
@@ -337,15 +351,43 @@ class ImageEditor(QMainWindow):
             if flag:
                 self.preview_imgp = default_path
                 self.image_label.imgp = self.preview_imgp
-        except:
-            print("Load fail!")
+        except Exception as e:
+            print(f"An error occurred: {e}")
     
     def back_image(self):
         try:
             self.image_label.imgp = self.img
         except:
             print("Back fail!")
-        
+    
+    def add_row(self):
+        """Add an empty row to self.conf and update the UI."""
+        # 增加空行到self.conf
+        new_row = pd.DataFrame([{key: "" for key in ["文字", "X", "Y", "大小", "字体"]}])
+        self.conf = pd.concat([self.conf, new_row], ignore_index=True)
+
+        # 在UI中增加新的一行
+        row = len(self.conf) - 1
+        for col, key in enumerate(["文字", "X", "Y", "大小", "字体"]):
+            edit = QLineEdit(self)
+            edit.setText("")
+            edit.textChanged.connect(lambda text, row=row, col=key: self.update_conf(text, row, col))
+            self.config_layout.addWidget(edit, row+1, col, alignment=Qt.AlignTop)
+
+    def remove_row(self):
+        """Remove the last row from self.conf and update the UI."""
+        if not self.conf.empty:
+            # 从self.conf中删除最后一行
+            self.conf = self.conf.iloc[:-1]
+
+            # 从UI中移除最后一行的QLineEdit小部件
+            row_to_remove = len(self.conf) + 1  # 配置在布局中的行是从1开始的
+            for col in range(5):  # 我们有5个字段
+                item = self.config_layout.itemAtPosition(row_to_remove, col)
+                if item is not None:
+                    widget_to_remove = item.widget()
+                    if widget_to_remove is not None:
+                        widget_to_remove.deleteLater()
 
     def show_image():
         pass

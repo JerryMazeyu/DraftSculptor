@@ -70,9 +70,9 @@ def draw(imgp, conf, output_path="./output_img.png"):
     draw = ImageDraw.Draw(image)
     for index, row in conf.iterrows():
         text = str(row['文字'])
-        x = row['X']
-        y = row['Y']
-        size = row['大小']
+        x = int(row['X'])
+        y = int(row['Y'])
+        size = int(row['大小'])
         font = row['字体']
         # Determine the font path
         if font == 'default':
