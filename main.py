@@ -49,9 +49,7 @@ class ImageLabel(QLabel):
             self._imgp = None
             self.img = None
     
-    # def resizeEvent(self, event):
-    #     super().resizeEvent(event)
-    #     self.sizeChanged.emit()
+
     
     @pyqtSlot()
     def update_img(self):
@@ -188,6 +186,7 @@ class ImageEditor(QMainWindow):
         self.import_template_button = QPushButton("导入模版", self)
         self.import_template_button.clicked.connect(self.select_image)
         self.import_config_button.clicked.connect(self.import_config)
+        self.save_config_button.clicked.connect(self.save_config)
         button_layout.addWidget(self.import_config_button)
         button_layout.addWidget(self.import_template_button)
         button_layout.addWidget(self.save_config_button)
@@ -236,11 +235,18 @@ class ImageEditor(QMainWindow):
         
         
         # =========Scan & Generate button=========
+        preview_layout = QHBoxLayout()
         self.preview_button = QPushButton("预览", self)
+        self.back_button = QPushButton("还原", self)
         self.generate_button = QPushButton("生成", self)
+        
         self.preview_button.clicked.connect(self.preview_image)
+        self.back_button.clicked.connect(self.back_image)
 
-        right_layout.addWidget(self.preview_button)
+        preview_layout.addWidget(self.preview_button)
+        preview_layout.addWidget(self.back_button)
+        right_layout.addLayout(preview_layout)
+        # right_layout.addWidget(self.preview_button)
         right_layout.addWidget(self.generate_button)
 
         main_layout.addLayout(right_layout)
@@ -285,11 +291,60 @@ class ImageEditor(QMainWindow):
                 edit.setText(str(value))
                 self.config_layout.addWidget(edit, row+1, col, alignment=Qt.AlignTop)
 
+    def save_config(self):
+        columns = ["文字", "X", "Y", "大小", "字体"]
+        data = {col: [] for col in columns}
+
+        # Iterate over the layout to gather the data
+        row_count = self.config_layout.rowCount()
+        for row in range(1, row_count):
+            row_data = []
+            for col in range(len(columns)):
+                item = self.config_layout.itemAtPosition(row, col)
+                if item is not None:
+                    widget = item.widget()
+                    if isinstance(widget, QLineEdit):
+                        row_data.append(widget.text())
+                    else:
+                        row_data.append("")  # If widget is not a QLineEdit, append an empty string
+                else:
+                    row_data.append("")  # If item is None, append an empty string
+            if any(row_data):  # Only add rows that have data
+                for col_name, value in zip(columns, row_data):
+                    data[col_name].append(value)
+
+        # Convert the data into a DataFrame
+        df = pd.DataFrame(data)
+
+        # Ask the user where to save the file
+        default_folder = pjoin(root(), 'configs')
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save File", default_folder, "Excel Files (*.xlsx);;CSV Files (*.csv)")
+        
+        if file_name:
+            try:
+                if file_name.endswith('.xlsx'):
+                    df.to_excel(file_name, index=False)
+                elif file_name.endswith('.csv'):
+                    df.to_csv(file_name, index=False)
+                print("Configuration saved successfully!")
+            except Exception as e:
+                print(f"Failed to save configuration: {e}")
 
     def preview_image(self):
-        assert self.img is not None, "self.img must be not None"
-        assert self.conf is not None, "self.conf must be not None"
-        draw(self.img, self.conf)
+        default_path = pjoin(root(), 'tmp', 'preview.png')
+        try:
+            flag = draw(self.img, self.conf, default_path)
+            if flag:
+                self.preview_imgp = default_path
+                self.image_label.imgp = self.preview_imgp
+        except:
+            print("Load fail!")
+    
+    def back_image(self):
+        try:
+            self.image_label.imgp = self.img
+        except:
+            print("Back fail!")
         
 
     def show_image():

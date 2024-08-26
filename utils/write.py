@@ -89,6 +89,7 @@ def draw(imgp, conf, output_path="./output_img.png"):
         draw.text((x, y), text, font=font, fill=(0, 0, 0, 255))  # Black color
         
     image.save(output_path)
+    return True
     
     
 if __name__ == "__main__":
