@@ -102,7 +102,7 @@ def find_solution(chara_dict):
     solution = random.choice(max_frequency_items)
     result = {}
     for k,v in chara_dict.items():
-        if solution[0] in v:
+        if solution in v:
             result[k] = solution
         else:
             result[k] = random.choice(v)
@@ -163,7 +163,10 @@ def use_handswrite(text, font_height: int) -> Image:
 
     combinations = find_all_combinations(directory, text)
     if combinations == []:
-        return Image.new('RGBA', (font_height, font_height), (255, 255, 255, 0))
+        font_p = find_ttf_file()
+        print("Cannot find solution, use font.")
+        return text_to_png(text, font_height, font_p)
+        # return Image.new('RGBA', (font_height, font_height), (255, 255, 255, 0))
     else:
         combination = random.choice(combinations)
         print(f"Combination is {combination}.")
@@ -218,19 +221,19 @@ def draw(imgp, conf, output_path="./output_img.png"):
         y = int(row['Y'])
         size = int(row['大小'])
         font = row['字体']
-        # Determine the font path
-        if font == 'default':
+        if font == 'hand':
+            text_img = use_handswrite(text, font_height=size)
+            image.paste(text_img, (x, y))
+        elif font == 'default':
             font_path = find_ttf_file()
+            font = ImageFont.truetype(font_path, size)
+            draw.text((x, y), text, font=font, fill=(0, 0, 0, 255))  # Black color
         else:
             font_path = pjoin(root(), 'assets', 'font', f'{font}.ttf')
             if not os.path.exists(font_path):
                 font_path = find_ttf_file()
-        
-        # Load the font
-        font = ImageFont.truetype(font_path, size)
-        
-        # Add the text to the image
-        draw.text((x, y), text, font=font, fill=(0, 0, 0, 255))  # Black color
+            font = ImageFont.truetype(font_path, size)
+            draw.text((x, y), text, font=font, fill=(0, 0, 0, 255))  # Black color
         
     image.save(output_path)
     return True
@@ -250,16 +253,16 @@ if __name__ == "__main__":
     # ttf_path = find_ttf_file(font_name)
     # print(f"Selected TTF file: {ttf_path}")
     
-    # image_path = "/Users/mazeyu/NewEra/DraftSculptor/assets/templates/签收单模板.jpg"
-    # data = {
-    # "文字": ["Hello", "World", "测试", "Python", "图像"],
-    # "X": [50, 150, 250, 350, 450],
-    # "Y": [50, 150, 250, 350, 450],
-    # "大小": [200, 300, 400, 500, 660],
-    # "字体": ["Arial", "default", "default", "Courier", "default"]
-    # }
-    # df = pd.DataFrame(data)
-    # draw(image_path, df)
+    image_path = r"C:\Users\H3C\WorkSpace\GXC\DraftSculptor\assets\templates\签收单模板.jpg"
+    data = {
+    "文字": ["张", "三", "李四"],
+    "X": [283, 609, 1609],
+    "Y": [628, 624, 635],
+    "大小": [100, 100, 110],
+    "字体": ["hand", "hand", "default"]
+    }
+    df = pd.DataFrame(data)
+    draw(image_path, df)
 
     # handwrite_path = r"/Users/mazeyu/NewEra/DraftSculptor/assets/imgs"
     # text = "陈刚周本才"
@@ -280,5 +283,5 @@ if __name__ == "__main__":
     # concatenated_image = concat_images_horizontally(image_paths, 100)
     # concatenated_image.show()  # To display the image
     # concatenated_image.save("output.png")  # To save the concatenated image
-    img = use_handswrite("陈刚周本才", font_height=200)
+    img = use_handswrite("张y李五", font_height=200)
     img.save("output.png")
