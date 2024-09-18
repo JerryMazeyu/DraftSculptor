@@ -1,8 +1,11 @@
 import os
 import random
+import numpy as np
 import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 from utils import root, pjoin
+from collections import Counter
+
 
 def find_ttf_file(font_name=None):
     """
@@ -76,19 +79,71 @@ def find_all_combinations(path: str, text: str):
     # Call the helper function with the base path and the full text
     return find_combinations(path, text)
 
-def solution_helper(chara_dict):
-        combined_list = [item for sublist in chara_dict.values() for item in sublist]
-        freq = Counter(combined_list)
-        max_frequency = max(freq.values())
-        max_frequency_items = [item for item, count in freq.items() if count == max_frequency]
-        solution = random.choice(max_frequency_items)
-        result = {}
-        for k,v in chara_dict.items():
-            if solution[0] in v:
-                result[k] = solution
-            else:
-                result[k] = random.choice(v)
-        return result
+def get_chara_dict(comb):
+    directory = pjoin(root(), 'assets', 'imgs')
+    chara_dict = {}
+    for chara in comb:
+        chara[chara] = [x.split('.')[0] for x in os.listdir(pjoin(directory))]
+    return chara_dict
+
+def find_solution(chara_dict):
+    """
+    example_dict = {
+    "A": ['a', 'b', 'c'],
+    "B": ['a', 'c', 'd'],
+    "C": ['1', '2', '3']
+    }
+    result = find_solution(example_dict)
+    """
+    combined_list = [item for sublist in chara_dict.values() for item in sublist]
+    freq = Counter(combined_list)
+    max_frequency = max(freq.values())
+    max_frequency_items = [item for item, count in freq.items() if count == max_frequency]
+    solution = random.choice(max_frequency_items)
+    result = {}
+    for k,v in chara_dict.items():
+        if solution[0] in v:
+            result[k] = solution
+        else:
+            result[k] = random.choice(v)
+    return result
+
+def concat_images_horizontally(image_paths, target_height):
+    """
+    Concatenate multiple PNG images horizontally and resize them to the specified height.
+    
+    Args:
+    image_paths (list of str): List of file paths for the PNG images.
+    target_height (int): The desired height for the output image.
+    
+    Returns:
+    Image object: The concatenated image.
+    """
+    
+    images = []
+    
+    # Resize images to the specified height and append them to the list
+    for image_path in image_paths:
+        img = Image.open(image_path)
+        # Calculate the new width to maintain aspect ratio
+        aspect_ratio = img.width / img.height
+        new_width = int(aspect_ratio * target_height)
+        resized_img = img.resize((new_width, target_height))
+        images.append(resized_img)
+    
+    # Get the total width of the concatenated image
+    total_width = sum(img.width for img in images)
+    
+    # Create a new blank image with the total width and specified height
+    concatenated_image = Image.new('RGB', (total_width, target_height))
+    
+    # Paste images one by one from left to right
+    current_x = 0
+    for img in images:
+        concatenated_image.paste(img, (current_x, 0))
+        current_x += img.width
+    
+    return concatenated_image
 
 def use_handswrite(text, font_height: int) -> Image:
     """
@@ -104,100 +159,27 @@ def use_handswrite(text, font_height: int) -> Image:
     Returns:
         Image: A PIL Image object of the resized image.
     """
-    directory = pjoin(root(), 'assets')
+    directory = pjoin(root(), 'assets', 'imgs')
 
-    solutions = find_all_combinations(directory, text)
-    if solutions == []:
+    combinations = find_all_combinations(directory, text)
+    if combinations == []:
         return Image.new('RGBA', (font_height, font_height), (255, 255, 255, 0))
     else:
-        solution = random.choice(solutions)
+        combination = random.choice(combinations)
+        print(f"Combination is {combination}.")
         solution_dict = {}
-        for chara in solution:
+        for chara in combination:
             chara_imgs = os.listdir(pjoin(directory, chara))
-            chara_names = [x.split('.') for x in chara_imgs if x.endswith('.png')]
+            chara_names = [x.split('.')[0] for x in chara_imgs if x.endswith('.png')]
             solution_dict[chara] = chara_names
-        solution = solution_helper(solution_dict)
+        solution = find_solution(solution_dict)
+        print(f"Solution is {solution}.")
+        solution_list = []
         for char, img_name in solution.items():
-            char_path = pjoin(directory, char, f"img_name.png")
-            pass
-        
-
-
-    def find_images_for_character(character: str):
-        """
-        Helper function to find all images for a single character.
-        """
-        char_path = os.path.join(directory, character)
-        if os.path.exists(char_path) and os.path.isdir(char_path):
-            images = os.listdir(char_path)
-            return [img for img in images if img.endswith('.png')]
-        return []
-    
-    # Try to find the entire word as a single directory
-    text_path = os.path.join(path, text)
-    if os.path.exists(text_path) and os.path.isdir(text_path):
-        # If a folder for the whole text exists, randomly select one image from it
-        images = os.listdir(text_path)
-        matched_images = [img for img in images if img.endswith('.png')]
-        if matched_images:
-            selected_image = random.choice(matched_images)
-            image_path = os.path.join(text_path, selected_image)
-            image = Image.open(image_path)
-            # Resize by keeping the height fixed to `font_height`
-            aspect_ratio = image.width / image.height
-            new_width = int(aspect_ratio * font_height)
-            resized_image = image.resize((new_width, font_height))
-            return resized_image
-    
-    # If the entire word doesn't exist, split the text into characters and combine their images
-    char_images = []
-    for char in text:
-        char_images.append(find_images_for_character(char))
-    
-    if not all(char_images):
-        raise ValueError(f"Could not find images for all characters in '{text}'")
-    
-    # Choose matching images if possible, otherwise randomly select
-    first_char_images = char_images[0]
-    second_char_images = char_images[1]
-    
-    combined_image = None
-    for first_image in first_char_images:
-        if first_image in second_char_images:
-            # If there's a matching image, select it for both characters
-            first_image_path = os.path.join(path, text[0], first_image)
-            second_image_path = os.path.join(path, text[1], first_image)
-            first_img = Image.open(first_image_path)
-            second_img = Image.open(second_image_path)
-            combined_image = (first_img, second_img)
-            break
-    
-    if not combined_image:
-        # If no matching images, select randomly
-        first_image_path = os.path.join(path, text[0], random.choice(first_char_images))
-        second_image_path = os.path.join(path, text[1], random.choice(second_char_images))
-        first_img = Image.open(first_image_path)
-        second_img = Image.open(second_image_path)
-        combined_image = (first_img, second_img)
-    
-    # Resize both images by height and combine horizontally
-    first_img, second_img = combined_image
-    aspect_ratio_1 = first_img.width / first_img.height
-    aspect_ratio_2 = second_img.width / second_img.height
-    new_width_1 = int(aspect_ratio_1 * font_height)
-    new_width_2 = int(aspect_ratio_2 * font_height)
-    first_img = first_img.resize((new_width_1, font_height))
-    second_img = second_img.resize((new_width_2, font_height))
-    
-    # Create a new image with the combined width
-    combined_width = new_width_1 + new_width_2
-    combined_image = Image.new('RGBA', (combined_width, font_height))
-    
-    # Paste the two images side by side
-    combined_image.paste(first_img, (0, 0))
-    combined_image.paste(second_img, (new_width_1, 0))
-    
-    return combined_image
+            char_path = pjoin(directory, char, f"{img_name}.png")
+            solution_list.append(char_path)
+        img = concat_images_horizontally(solution_list, font_height)
+        return img
 
 def text_to_png(text, font_size, font_path=None, output_path=None):
     """
@@ -279,34 +261,24 @@ if __name__ == "__main__":
     # df = pd.DataFrame(data)
     # draw(image_path, df)
 
-    # handwrite_path = r"C:\Users\H3C\WorkSpace\GXC\DraftSculptor\assets\imgs"
-    # text = "da"
+    # handwrite_path = r"/Users/mazeyu/NewEra/DraftSculptor/assets/imgs"
+    # text = "陈刚周本才"
     # combinations = find_all_combinations(handwrite_path, text)
     # print(combinations)
-    from collections import Counter
 
-    def find_max_common_combinations(chara_dict):
-        combined_list = [item for sublist in chara_dict.values() for item in sublist]
-        freq = Counter(combined_list)
-        max_frequency = max(freq.values())
-        max_frequency_items = [item for item, count in freq.items() if count == max_frequency]
-        solution = random.choice(max_frequency_items)
-        result = {}
-        for k,v in chara_dict.items():
-            if solution[0] in v:
-                result[k] = solution
-            else:
-                result[k] = random.choice(v)
-        return result
+    # example_dict = {
+    # "A": ['a', 'b', 'c'],
+    # "B": ['a', 'c', 'd'],
+    # "C": ['1', '2', '3']
+    # }
 
+    # result = find_max_common_combinations(example_dict)
+    # for combo in result:
+    #     print(combo)
 
-
-    example_dict = {
-    "A": ['a', 'b', 'c'],
-    "B": ['a', 'c', 'd'],
-    "C": ['1', '2', '3']
-    }
-
-    result = find_max_common_combinations(example_dict)
-    for combo in result:
-        print(combo)
+    # image_paths = ["/Users/mazeyu/NewEra/DraftSculptor/assets/imgs/陈刚/1.png", "/Users/mazeyu/NewEra/DraftSculptor/assets/imgs/周本才/1.png", "/Users/mazeyu/NewEra/DraftSculptor/assets/imgs/周本才/c.png"]
+    # concatenated_image = concat_images_horizontally(image_paths, 100)
+    # concatenated_image.show()  # To display the image
+    # concatenated_image.save("output.png")  # To save the concatenated image
+    img = use_handswrite("陈刚周本才", font_height=200)
+    img.save("output.png")
