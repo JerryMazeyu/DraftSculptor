@@ -12,6 +12,7 @@ from PyQt5.QtGui import (QPixmap, QFont, QImage)
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 from PIL import Image, ImageDraw, ImageFont
 from utils import *
+import shutil
 
 
 
@@ -252,6 +253,7 @@ class ImageEditor(QMainWindow):
         
         self.preview_button.clicked.connect(self.preview_image)
         self.back_button.clicked.connect(self.back_image)
+        self.generate_button.clicked.connect(self.generate_image)
 
         preview_layout.addWidget(self.preview_button)
         preview_layout.addWidget(self.back_button)
@@ -389,12 +391,21 @@ class ImageEditor(QMainWindow):
                     if widget_to_remove is not None:
                         widget_to_remove.deleteLater()
 
-    def show_image():
-        pass
 
     def generate_image(self):
         # 生成最终图像逻辑
-        pass
+        default_folder = root()
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save File", default_folder, "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)")
+        if hasattr(self, "preview_imgp"):
+            shutil.copy(self.preview_imgp, file_name)
+        else:
+            try:
+                flag = draw(self.img, self.conf, file_name)
+                if flag:
+                    self.preview_imgp = file_name
+                    self.image_label.imgp = self.preview_imgp
+            except Exception as e:
+                print(f"An error occurred: {e}")
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

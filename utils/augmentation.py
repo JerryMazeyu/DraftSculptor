@@ -1,8 +1,73 @@
 import cv2
 import numpy as np
 import random
-from utils import remove_white_background, add_white_background
 from PIL import Image
+
+def remove_white_background(image) -> Image:
+    """
+    Removes white background from an image by making white regions transparent.
+    
+    Args:
+        image: Input image, either a cv2 image (numpy array) or a PIL image.
+
+    Returns:
+        Image: A PIL image with white background removed (transparent background).
+    """
+    # If input is a PIL image, convert it to an OpenCV image (numpy array)
+    if isinstance(image, Image.Image):
+        image = np.array(image)
+        # Convert RGB to RGBA if the image does not have an alpha channel
+        if image.shape[2] == 3:
+            image = cv2.cvtColor(image, cv2.COLOR_RGB2RGBA)
+    
+    # Check if the input is already in RGBA
+    elif image.shape[2] == 3:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2BGRA)
+
+    # Define the white color range (adjust values as needed)
+    lower_white = np.array([100, 100, 100, 0])  # Lower threshold for white
+    upper_white = np.array([255, 255, 255, 255])  # Upper threshold for white
+
+    # Create a mask where white areas are detected
+    white_mask = cv2.inRange(image, lower_white, upper_white)
+
+    # Set the alpha channel of the white areas to 0 (make it transparent)
+    image[white_mask == 255] = [0, 0, 0, 0]
+
+    # Convert the OpenCV image back to PIL format
+    pil_image = Image.fromarray(cv2.cvtColor(image.astype(np.uint8), cv2.COLOR_BGRA2RGBA))
+
+    return pil_image
+
+def add_white_background(pil_img) -> np.ndarray:
+    """
+    Add a white background to a transparent PNG image and return the image in OpenCV format.
+
+    Args:
+        pil_img (PIL.Image.Image): Input transparent background image in PIL format.
+
+    Returns:
+        cv2_img (numpy.ndarray): Output image with a white background in OpenCV format.
+    """
+    # Ensure the image is in RGBA mode to handle transparency
+    pil_img = pil_img.convert("RGBA")
+
+    # Create a white background image with the same size as the original image
+    white_bg = Image.new("RGBA", pil_img.size, (255, 255, 255, 255))
+
+    # Paste the original image onto the white background
+    white_bg.paste(pil_img, (0, 0), pil_img)
+
+    # Convert the image to RGB (to remove alpha channel)
+    pil_img_rgb = white_bg.convert("RGB")
+
+    # Convert the PIL image to a NumPy array (which is in OpenCV format)
+    cv2_img = np.array(pil_img_rgb)
+
+    # Convert RGB to BGR format (OpenCV uses BGR format)
+    cv2_img = cv2.cvtColor(cv2_img, cv2.COLOR_RGB2BGR)
+
+    return cv2_img
 
 
 class Augmentation(object):
@@ -77,7 +142,7 @@ class Augmentation(object):
 
         return points
     
-    def simulate_ink_spread_v3(self, spread_size=20, max_intensity=255, region_count=3, point_ratio=1):
+    def simulate_ink_spread_v3(self, spread_size=20, max_intensity=255, region_count=3, point_ratio=0.6):
         """
         Simulate ink spread for a few non-white pixels in a specified direction from detected corners/endpoints.
         

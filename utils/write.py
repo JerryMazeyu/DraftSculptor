@@ -5,7 +5,7 @@ import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 from utils import root, pjoin
 from collections import Counter
-from augmentation import Augmentation
+from .augmentation import Augmentation
 
 
 def find_ttf_file(font_name=None):
@@ -264,16 +264,12 @@ def draw(imgp, conf, output_path="./output_img.png"):
             # image.paste(text_img, (x, y))
             image = overlay_png_on_background(image, text_img, (x, y))
         elif font == 'default':
-            # draw = ImageDraw.Draw(image)
-            # font = ImageFont.truetype(font_path, size)
             font_path = find_ttf_file()
             text_png = text_to_png(text, size, font_path)
             aug = Augmentation(text_png)
             text_png_aug = aug.run()
             image = overlay_png_on_background(image, text_png_aug, (x, y))
-            # draw.text((x, y), text, font=font, fill=(0, 0, 0, 255))  # Black color
         else:
-            # draw = ImageDraw.Draw(image)
             font_path = pjoin(root(), 'assets', 'font', f'{font}.ttf')
             if not os.path.exists(font_path):
                 font_path = find_ttf_file()
@@ -281,11 +277,11 @@ def draw(imgp, conf, output_path="./output_img.png"):
             aug = Augmentation(text_png)
             text_png_aug = aug.run()
             image = overlay_png_on_background(image, text_png_aug, (x, y))
-            # font = ImageFont.truetype(font_path, size)
-            # draw.text((x, y), text, font=font, fill=(0, 0, 0, 255))  # Black color
-        
-    image.save(output_path)
-    return True
+    if output_path:    
+        image.save(output_path)
+        return True
+    else:
+        return image
     
     
 if __name__ == "__main__":
