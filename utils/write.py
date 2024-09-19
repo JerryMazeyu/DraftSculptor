@@ -5,6 +5,7 @@ import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 from utils import root, pjoin
 from collections import Counter
+from augmentation import Augmentation
 
 
 def find_ttf_file(font_name=None):
@@ -263,17 +264,25 @@ def draw(imgp, conf, output_path="./output_img.png"):
             # image.paste(text_img, (x, y))
             image = overlay_png_on_background(image, text_img, (x, y))
         elif font == 'default':
-            draw = ImageDraw.Draw(image)
+            # draw = ImageDraw.Draw(image)
+            # font = ImageFont.truetype(font_path, size)
             font_path = find_ttf_file()
-            font = ImageFont.truetype(font_path, size)
-            draw.text((x, y), text, font=font, fill=(0, 0, 0, 255))  # Black color
+            text_png = text_to_png(text, size, font_path)
+            aug = Augmentation(text_png)
+            text_png_aug = aug.run()
+            image = overlay_png_on_background(image, text_png_aug, (x, y))
+            # draw.text((x, y), text, font=font, fill=(0, 0, 0, 255))  # Black color
         else:
-            draw = ImageDraw.Draw(image)
+            # draw = ImageDraw.Draw(image)
             font_path = pjoin(root(), 'assets', 'font', f'{font}.ttf')
             if not os.path.exists(font_path):
                 font_path = find_ttf_file()
-            font = ImageFont.truetype(font_path, size)
-            draw.text((x, y), text, font=font, fill=(0, 0, 0, 255))  # Black color
+            text_png = text_to_png(text, size, font_path)
+            aug = Augmentation(text_png)
+            text_png_aug = aug.run()
+            image = overlay_png_on_background(image, text_png_aug, (x, y))
+            # font = ImageFont.truetype(font_path, size)
+            # draw.text((x, y), text, font=font, fill=(0, 0, 0, 255))  # Black color
         
     image.save(output_path)
     return True
@@ -281,47 +290,25 @@ def draw(imgp, conf, output_path="./output_img.png"):
     
 if __name__ == "__main__":
     # Example usage
-    font_path = "/Users/mazeyu/NewEra/DraftSculptor/assets/fonts/person2.ttf"
-    output_path = "output_text.png"
-    text = "你好，我是人2号"
-    font_size = 100
+    # font_path = "/Users/mazeyu/NewEra/DraftSculptor/assets/fonts/person2.ttf"
+    # output_path = "output_text.png"
+    # text = "你好，我是人2号"
+    # font_size = 100
 
-    text_to_png(text, font_size, font_path=font_path, output_path=output_path)
+    # text_to_png(text, font_size, font_path=font_path, output_path=output_path)
     # Example usage
     # font_name = None  # or specify a font name like "Arial" (without the .ttf extension)
 
     # ttf_path = find_ttf_file(font_name)
     # print(f"Selected TTF file: {ttf_path}")
     
-    # image_path = r"/Users/mazeyu/NewEra/DraftSculptor/assets/templates/签收单模板.jpg"
-    # data = {
-    # "文字": ["张", "三", "李四"],
-    # "X": [283, 609, 1609],
-    # "Y": [628, 624, 635],
-    # "大小": [100, 100, 110],
-    # "字体": ["hand", "hand", "default"]
-    # }
-    # df = pd.DataFrame(data)
-    # draw(image_path, df)
-
-    # handwrite_path = r"/Users/mazeyu/NewEra/DraftSculptor/assets/imgs"
-    # text = "陈刚周本才"
-    # combinations = find_all_combinations(handwrite_path, text)
-    # print(combinations)
-
-    # example_dict = {
-    # "A": ['a', 'b', 'c'],
-    # "B": ['a', 'c', 'd'],
-    # "C": ['1', '2', '3']
-    # }
-
-    # result = find_max_common_combinations(example_dict)
-    # for combo in result:
-    #     print(combo)
-
-    # image_paths = ["/Users/mazeyu/NewEra/DraftSculptor/assets/imgs/陈刚/1.png", "/Users/mazeyu/NewEra/DraftSculptor/assets/imgs/周本才/1.png", "/Users/mazeyu/NewEra/DraftSculptor/assets/imgs/周本才/c.png"]
-    # concatenated_image = concat_images_horizontally(image_paths, 100)
-    # concatenated_image.show()  # To display the image
-    # concatenated_image.save("output.png")  # To save the concatenated image
-    # img = use_handswrite("张y李五", font_height=200)
-    # img.save("output.png")
+    image_path = r"C:\Users\H3C\WorkSpace\GXC\DraftSculptor\assets\templates\签收单模板.jpg"
+    data = {
+    "文字": ["张三", "李四", "你好我是马泽宇"],
+    "X": [283, 609, 1609],
+    "Y": [628, 624, 635],
+    "大小": [100, 100, 110],
+    "字体": ["hand", "hand", "default"]
+    }
+    df = pd.DataFrame(data)
+    draw(image_path, df)

@@ -1,13 +1,29 @@
 import cv2
 import numpy as np
 import random
+from utils import remove_white_background, add_white_background
+from PIL import Image
+
 
 class Augmentation(object):
-    def __init__(self, imgp, mode='default'):
-        self.imgp = imgp
+    def __init__(self, source, mode='default'):
+        
+        if isinstance(source, str):  # image path
+            self.imgp = imgp
+            self.image = cv2.imread(imgp, cv2.IMREAD_GRAYSCALE)
+        elif isinstance(source, Image.Image):  # PIL
+            if source.mode == 'RGBA':
+                self.image = add_white_background(source)
+            else:
+                self.image = np.array(source)                
+        else:  # cv2
+            self.image = source
+        
         self.mode = mode
-        self.image = cv2.imread(imgp, cv2.IMREAD_GRAYSCALE)
+        # self.image = cv2.imread(imgp, cv2.IMREAD_GRAYSCALE)
         _, self.binary_image = cv2.threshold(self.image, 128, 255, cv2.THRESH_BINARY_INV)
+        if len(self.binary_image.shape) == 3:
+            self.binary_image = cv2.cvtColor(self.binary_image, cv2.COLOR_RGB2GRAY)
         
     
     def _find_ink_spread_points(self, threshold=50, region_count=3, point_ratio=0.2,  box_size=20):
@@ -40,19 +56,14 @@ class Augmentation(object):
             
             def wrap_check(tarpoint, x, y, w, h):
                 ratio = random.uniform(0.2, 0.8)
-                print(f"Ratio is {ratio}.")
                 x_up, y_up = random.choice([0,1]), random.choice([0,1])
                 if x_up and y_up:
-                    print("UpUp")
                     return True if tarpoint[0] <= int(x+w*ratio) and tarpoint[1] <= int(y+h*ratio) else False
                 elif x_up and not y_up:
-                    print("UpDown")
                     return True if tarpoint[0] <= int(x+w*ratio) and tarpoint[1] > int(y+h*ratio) else False
                 elif not x_up and y_up:
-                    print("DownUp")
                     return True if tarpoint[0] > int(x+w*ratio) and tarpoint[1] <= int(y+h*ratio) else False
                 else:
-                    print("DownDown")
                     return True if tarpoint[0] > int(x+w*ratio) and tarpoint[1] > int(y+h*ratio) else False
 
             contour_points = [tuple(pt[0]) for pt in cnt if wrap_check(pt[0], x, y, w, h)]
@@ -66,20 +77,16 @@ class Augmentation(object):
 
         return points
     
-    def simulate_ink_spread_v3(self, spread_size=20, max_intensity=255, region_count=3, point_ratio=0.3):
+    def simulate_ink_spread_v3(self, spread_size=20, max_intensity=255, region_count=3, point_ratio=1):
         """
         Simulate ink spread for a few non-white pixels in a specified direction from detected corners/endpoints.
-
-        :param image: Input binary image
-        :param spread_size: How far the ink spreads from the center
-        :param max_intensity: The maximum intensity for the ink (darker value)
-        :param max_points: Maximum number of points for ink spread
-        :return: Image with simulated ink spread
+        
+        return: Image with simulated ink spread
         """
         # Convert image to float for better manipulation
         
         direction = (random.randint(0,5), random.randint(0,5))
-        direction = (0,2)
+        # direction = (0,2)
         print(f"Direction is {direction}.")
         spread_image = self.binary_image.copy().astype(np.float32)
 
@@ -113,10 +120,10 @@ class Augmentation(object):
         spread_image += mask
         spread_image = 255 - spread_image
         # spread_image = np.clip(spread_image, 0, 255).astype(np.uint8)
-
+        spread_image = cv2.cvtColor(spread_image, cv2.COLOR_GRAY2RGB)
         return spread_image
 
-    def simulate_ink_break(self, erosion_size=10, break_ratio=0.2):
+    def simulate_ink_break(self, erosion_size=5, break_ratio=0.2):
         """
         Simulate ink breakage by applying erosion to a random part of the connected components (contours).
         
@@ -155,29 +162,31 @@ class Augmentation(object):
             
             # Step 6: Replace the eroded region back into the original image
             result_image[break_y:break_y + break_region_height, break_x:break_x + break_region_width] = eroded_region
-
-            result_image = cv2.bitwise_not(result_image)
+            # result_image = cv2.bitwise_not(result_image)
+        result_image = 255 - result_image
+        result_image = cv2.cvtColor(result_image, cv2.COLOR_GRAY2RGB)
         return result_image
 
     def run(self):
-        print(f"Processing {self.imgp}...")
         if self.mode == "default":
             is_spread = random.choice([0,1])
-            is_spread = 0
         if is_spread:
+            print("Spread augmentation.")
             result_img = self.simulate_ink_spread_v3()
-            return result_img
         else:
+            print("Break augmentation.")
             result_img = self.simulate_ink_break()
-            return result_img
+        result_img = remove_white_background(Image.fromarray(result_img.astype(np.uint8)))
+        return result_img
 
 if __name__ == "__main__":
     pass
-    imgp = "/Users/mazeyu/NewEra/DraftSculptor/output.png"
+    imgp = r"C:\Users\H3C\WorkSpace\GXC\DraftSculptor\output_text.png"
+    img_pil = Image.open(imgp)
     # while True:
-    ag = Augmentation(imgp)
+    ag = Augmentation(img_pil)
     
     res = ag.run()
-    cv2.imwrite('result.png', res)
+    res.save('result.png')
     
     

@@ -7,7 +7,7 @@ from pathlib import Path
 
 # ================================================================
 
-img_path = '/Users/mazeyu/NewEra/DraftSculptor/demo6.png'  # 需要被解构的图像
+img_path = r'C:\Users\H3C\WorkSpace\GXC\DraftSculptor\demo6.png'  # 需要被解构的图像
 
 mode = "single:李五"  # single:X 指的是所有的字都是统一种，冒号后是该字 multi则只负责分割，需要手动重组 
 para = 8  # 调节参数（如果字内部分离则调大些）
@@ -38,14 +38,7 @@ def clear_background_and_detect_characters(image_path, mode, para):
         # 通过bounding box裁剪出单个字
         cropped_char = img[y:y+h, x:x+w]
         
-        cropped_char_rgba = cv2.cvtColor(cropped_char, cv2.COLOR_BGR2BGRA)  # **新增代码**
-        # # 将白色背景部分（[255, 255, 255]）的像素值的alpha通道设为0（透明）
-        # for i in range(cropped_char_rgba.shape[0]):
-        #     for j in range(cropped_char_rgba.shape[1]):
-        #         if (cropped_char_rgba[i, j] == [255, 255, 255, 255]).all():
-        #             cropped_char_rgba[i, j, 3] = 0  # **新增代码**
-                # 将裁剪后的图像转换为RGBA格式，以支持透明背景
-        # cropped_char_rgba = cv2.cvtColor(cropped_char, cv2.COLOR_BGR2BGRA)  # **将BGR转换为带Alpha通道的BGRA**
+        cropped_char_rgba = cv2.cvtColor(cropped_char, cv2.COLOR_BGR2BGRA) 
         
         # 设置近似白色和近似黑色的阈值
         lower_white = np.array([100, 100, 100, 0])  # **背景接近白色的最低值**
