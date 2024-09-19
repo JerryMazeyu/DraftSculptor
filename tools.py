@@ -7,8 +7,9 @@ from pathlib import Path
 
 # ================================================================
 
-img_path = r'C:\Users\H3C\WorkSpace\GXC\DraftSculptor\demo7.png'  # 需要被解构的图像
-mode = "single:涂画"  # single:X 指的是所有的字都是统一种，冒号后是该字 multi则只负责分割，需要手动重组 
+img_path = '/Users/mazeyu/NewEra/DraftSculptor/demo6.png'  # 需要被解构的图像
+
+mode = "single:李五"  # single:X 指的是所有的字都是统一种，冒号后是该字 multi则只负责分割，需要手动重组 
 para = 8  # 调节参数（如果字内部分离则调大些）
 # ================================================================
 
@@ -36,7 +37,28 @@ def clear_background_and_detect_characters(image_path, mode, para):
         x, y, w, h = cv2.boundingRect(cnt)
         # 通过bounding box裁剪出单个字
         cropped_char = img[y:y+h, x:x+w]
-        cropped_images.append(cropped_char)
+        
+        cropped_char_rgba = cv2.cvtColor(cropped_char, cv2.COLOR_BGR2BGRA)  # **新增代码**
+        # # 将白色背景部分（[255, 255, 255]）的像素值的alpha通道设为0（透明）
+        # for i in range(cropped_char_rgba.shape[0]):
+        #     for j in range(cropped_char_rgba.shape[1]):
+        #         if (cropped_char_rgba[i, j] == [255, 255, 255, 255]).all():
+        #             cropped_char_rgba[i, j, 3] = 0  # **新增代码**
+                # 将裁剪后的图像转换为RGBA格式，以支持透明背景
+        # cropped_char_rgba = cv2.cvtColor(cropped_char, cv2.COLOR_BGR2BGRA)  # **将BGR转换为带Alpha通道的BGRA**
+        
+        # 设置近似白色和近似黑色的阈值
+        lower_white = np.array([100, 100, 100, 0])  # **背景接近白色的最低值**
+        upper_white = np.array([255, 255, 255, 255])  # **背景接近白色的最高值**
+
+        # 创建掩码，将背景部分设为透明
+        white_mask = cv2.inRange(cropped_char_rgba, lower_white, upper_white)  # **生成白色掩码**
+        
+        # 设置所有白色背景的alpha通道为0，其他部分保持不变
+        cropped_char_rgba[white_mask == 255] = [0, 0, 0, 0]  # **将背景部分的Alpha设为0**
+        
+        
+        cropped_images.append(cropped_char_rgba)
     
     result_dir = os.path.join(root(), "character_result")
     if not os.path.exists(result_dir):
@@ -49,7 +71,7 @@ def clear_background_and_detect_characters(image_path, mode, para):
             os.makedirs(result_dir)
     
     for i, char_img in enumerate(cropped_images):
-        cv2.imwrite(os.path.join(root(), "character_result", f"char{i}.png").replace("//", "\\"), char_img)
+        cv2.imwrite(os.path.join(root(), "character_result", f"char{i}.png"), char_img)
     return True
 
 if __name__ == "__main__":

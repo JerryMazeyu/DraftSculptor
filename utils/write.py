@@ -124,7 +124,8 @@ def concat_images_horizontally(image_paths, target_height):
     
     # Resize images to the specified height and append them to the list
     for image_path in image_paths:
-        img = Image.open(image_path)
+        img = Image.open(image_path).convert("RGBA")
+
         # Calculate the new width to maintain aspect ratio
         aspect_ratio = img.width / img.height
         new_width = int(aspect_ratio * target_height)
@@ -135,12 +136,12 @@ def concat_images_horizontally(image_paths, target_height):
     total_width = sum(img.width for img in images)
     
     # Create a new blank image with the total width and specified height
-    concatenated_image = Image.new('RGB', (total_width, target_height))
+    concatenated_image = Image.new('RGBA', (total_width, target_height), (255, 255, 255, 0))
     
     # Paste images one by one from left to right
     current_x = 0
     for img in images:
-        concatenated_image.paste(img, (current_x, 0))
+        concatenated_image.paste(img, (current_x, 0), img)
         current_x += img.width
     
     return concatenated_image
@@ -182,6 +183,7 @@ def use_handswrite(text, font_height: int) -> Image:
             char_path = pjoin(directory, char, f"{img_name}.png")
             solution_list.append(char_path)
         img = concat_images_horizontally(solution_list, font_height)
+        
         return img
 
 def text_to_png(text, font_size, font_path=None, output_path=None):
@@ -212,9 +214,44 @@ def text_to_png(text, font_size, font_path=None, output_path=None):
     else:
         return image
 
+def overlay_png_on_background(background, png_image, position=(0, 0)):
+    """
+    Overlay a transparent PNG image on top of a background image at the specified position.
+    
+    Args:
+    background (PIL.Image): The background image (can be any mode like RGB, RGBA).
+    png_image (PIL.Image): The PNG image with transparency (must have an alpha channel).
+    position (tuple of int): The (x, y) position where the PNG will be placed on the background.
+    
+    Returns:
+    PIL.Image: The combined image with the PNG overlaid on the background.
+    """
+    
+    # Ensure both images are in RGBA mode (so they have alpha channels)
+    background = background.convert("RGBA")
+    png_image = png_image.convert("RGBA")
+    
+    # Get position where the PNG will be placed
+    x, y = position
+    
+    # Get dimensions of the background and PNG image
+    bg_width, bg_height = background.size
+    png_width, png_height = png_image.size
+    
+    # Check if the PNG will fit within the background at the specified position
+    if x + png_width > bg_width or y + png_height > bg_height:
+        raise ValueError("PNG image exceeds the background dimensions at the specified position.")
+    
+    # Create a copy of the background to avoid modifying the original
+    combined_image = background.copy()
+    
+    # Paste the PNG image onto the background, using the PNG's alpha channel as the mask
+    combined_image.paste(png_image, (x, y), png_image)
+    
+    return combined_image
+
 def draw(imgp, conf, output_path="./output_img.png"):
     image = Image.open(imgp)
-    draw = ImageDraw.Draw(image)
     for _, row in conf.iterrows():
         text = str(row['文字'])
         x = int(row['X'])
@@ -223,12 +260,15 @@ def draw(imgp, conf, output_path="./output_img.png"):
         font = row['字体']
         if font == 'hand':
             text_img = use_handswrite(text, font_height=size)
-            image.paste(text_img, (x, y))
+            # image.paste(text_img, (x, y))
+            image = overlay_png_on_background(image, text_img, (x, y))
         elif font == 'default':
+            draw = ImageDraw.Draw(image)
             font_path = find_ttf_file()
             font = ImageFont.truetype(font_path, size)
             draw.text((x, y), text, font=font, fill=(0, 0, 0, 255))  # Black color
         else:
+            draw = ImageDraw.Draw(image)
             font_path = pjoin(root(), 'assets', 'font', f'{font}.ttf')
             if not os.path.exists(font_path):
                 font_path = find_ttf_file()
@@ -240,29 +280,29 @@ def draw(imgp, conf, output_path="./output_img.png"):
     
     
 if __name__ == "__main__":
-    # # Example usage
-    # font_path = "/Users/mazeyu/NewEra/DraftSculptor/assets/fonts/person2.ttf"
-    # output_path = "output_text.png"
-    # text = "你好，我是人2号"
-    # font_size = 100
+    # Example usage
+    font_path = "/Users/mazeyu/NewEra/DraftSculptor/assets/fonts/person2.ttf"
+    output_path = "output_text.png"
+    text = "你好，我是人2号"
+    font_size = 100
 
-    # text_to_png(text, font_path, font_size, output_path)
+    text_to_png(text, font_size, font_path=font_path, output_path=output_path)
     # Example usage
     # font_name = None  # or specify a font name like "Arial" (without the .ttf extension)
 
     # ttf_path = find_ttf_file(font_name)
     # print(f"Selected TTF file: {ttf_path}")
     
-    image_path = r"C:\Users\H3C\WorkSpace\GXC\DraftSculptor\assets\templates\签收单模板.jpg"
-    data = {
-    "文字": ["张", "三", "李四"],
-    "X": [283, 609, 1609],
-    "Y": [628, 624, 635],
-    "大小": [100, 100, 110],
-    "字体": ["hand", "hand", "default"]
-    }
-    df = pd.DataFrame(data)
-    draw(image_path, df)
+    # image_path = r"/Users/mazeyu/NewEra/DraftSculptor/assets/templates/签收单模板.jpg"
+    # data = {
+    # "文字": ["张", "三", "李四"],
+    # "X": [283, 609, 1609],
+    # "Y": [628, 624, 635],
+    # "大小": [100, 100, 110],
+    # "字体": ["hand", "hand", "default"]
+    # }
+    # df = pd.DataFrame(data)
+    # draw(image_path, df)
 
     # handwrite_path = r"/Users/mazeyu/NewEra/DraftSculptor/assets/imgs"
     # text = "陈刚周本才"
@@ -283,5 +323,5 @@ if __name__ == "__main__":
     # concatenated_image = concat_images_horizontally(image_paths, 100)
     # concatenated_image.show()  # To display the image
     # concatenated_image.save("output.png")  # To save the concatenated image
-    img = use_handswrite("张y李五", font_height=200)
-    img.save("output.png")
+    # img = use_handswrite("张y李五", font_height=200)
+    # img.save("output.png")
