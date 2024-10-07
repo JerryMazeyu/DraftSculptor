@@ -3,7 +3,7 @@ import random
 import numpy as np
 import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
-from utils import root, pjoin
+from utils import root, pjoin, can_substitude, find_substitude
 from collections import Counter
 from .augmentation import Augmentation
 
@@ -64,7 +64,6 @@ def find_all_combinations(path: str, text: str):
         for i in range(1, len(remaining_text) + 1):
             # Get the current substring
             current_substr = remaining_text[:i]
-            
             # Check if this substring has a corresponding directory
             current_path = os.path.join(prefix, current_substr)
             if os.path.exists(current_path) and os.path.isdir(current_path):
@@ -74,7 +73,14 @@ def find_all_combinations(path: str, text: str):
                 # Add the current substring to each valid combination of the remaining text
                 for combination in remaining_combinations:
                     valid_combinations.append([current_substr] + combination)
-        
+            else:
+                if can_substitude(current_substr):
+                    current_substr_ = find_substitude(current_substr)
+                    print(f"找到{current_substr}的替代{current_substr_}。")
+                    current_substr = current_substr_
+                    remaining_combinations = find_combinations(prefix, remaining_text[i:])
+                    for combination in remaining_combinations:
+                        valid_combinations.append([current_substr] + combination)
         return valid_combinations
     
     # Call the helper function with the base path and the full text
@@ -166,19 +172,19 @@ def use_handswrite(text, font_height: int) -> Image:
     combinations = find_all_combinations(directory, text)
     if combinations == []:
         font_p = find_ttf_file()
-        print("Cannot find solution, use font.")
+        print(f"[Warning] 无法找到 {text} 的手写体, 用字体代替.")
         return text_to_png(text, font_height, font_p)
         # return Image.new('RGBA', (font_height, font_height), (255, 255, 255, 0))
     else:
         combination = random.choice(combinations)
-        print(f"Combination is {combination}.")
+        # print(f"Combination is {combination}.")
         solution_dict = {}
         for chara in combination:
             chara_imgs = os.listdir(pjoin(directory, chara))
             chara_names = [x.split('.')[0] for x in chara_imgs if x.endswith('.png')]
             solution_dict[chara] = chara_names
         solution = find_solution(solution_dict)
-        print(f"Solution is {solution}.")
+        # print(f"Solution is {solution}.")
         solution_list = []
         for char, img_name in solution.items():
             char_path = pjoin(directory, char, f"{img_name}.png")
@@ -270,13 +276,14 @@ def draw(imgp, conf, output_path="./output_img.png"):
             text_png_aug = aug.run()
             image = overlay_png_on_background(image, text_png_aug, (x, y))
         else:
-            font_path = pjoin(root(), 'assets', 'font', f'{font}.ttf')
+            font_path = pjoin(root(), 'assets', 'fonts', f'{font}.ttf')
             if not os.path.exists(font_path):
+                print(f"[Waring] 未找到 {font_path}， 随机选择一个字体替代。")
                 font_path = find_ttf_file()
             text_png = text_to_png(text, size, font_path)
-            aug = Augmentation(text_png)
-            text_png_aug = aug.run()
-            image = overlay_png_on_background(image, text_png_aug, (x, y))
+            # aug = Augmentation(text_png)
+            # text_png_aug = aug.run()
+            image = overlay_png_on_background(image, text_png, (x, y))  # TODO: 强化图像增强
     if output_path:    
         image.save(output_path)
         return True
@@ -298,9 +305,9 @@ if __name__ == "__main__":
     # ttf_path = find_ttf_file(font_name)
     # print(f"Selected TTF file: {ttf_path}")
     
-    image_path = r"C:\Users\H3C\WorkSpace\GXC\DraftSculptor\assets\templates\签收单模板.jpg"
+    image_path = r"/Users/mazeyu/NewEra/DraftSculptor/assets/templates/餐厨废油签收单 UCO Collection Slips_00.png"
     data = {
-    "文字": ["张三", "李四", "你好我是马泽宇"],
+    "文字": ["张三", "李四", "你好好"],
     "X": [283, 609, 1609],
     "Y": [628, 624, 635],
     "大小": [100, 100, 110],

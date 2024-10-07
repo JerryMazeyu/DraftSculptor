@@ -159,7 +159,7 @@ class Augmentation(object):
         try:
             spread_points = self._find_ink_spread_points(region_count=region_count, point_ratio=point_ratio)
         except:
-            print("Can not find ink spread.")
+            print("Cannot find ink spread.")
             return self.binary_image
         
         # Create an empty mask to accumulate the spread effect
@@ -222,22 +222,27 @@ class Augmentation(object):
             # Define the subregion to erode
             break_region = result_image[break_y:break_y + break_region_height, break_x:break_x + break_region_width]
             
-            # Step 5: Apply erosion to the selected subregion
-            eroded_region = cv2.erode(break_region, kernel, iterations=1)
+            try:
+                # Step 5: Apply erosion to the selected subregion
+                eroded_region = cv2.erode(break_region, kernel, iterations=1)
+                # Step 6: Replace the eroded region back into the original image
+                result_image[break_y:break_y + break_region_height, break_x:break_x + break_region_width] = eroded_region
+            except:
+                pass
             
-            # Step 6: Replace the eroded region back into the original image
-            result_image[break_y:break_y + break_region_height, break_x:break_x + break_region_width] = eroded_region
-            # result_image = cv2.bitwise_not(result_image)
         result_image = 255 - result_image
         result_image = cv2.cvtColor(result_image, cv2.COLOR_GRAY2RGB)
         return result_image
-
+    
     def run(self):
         if self.mode == "default":
             is_spread = random.choice([0,1])
         if is_spread:
             print("Spread augmentation.")
-            result_img = self.simulate_ink_spread_v3()
+            try:
+                result_img = self.simulate_ink_spread_v3()
+            except:
+                result_img = self.simulate_ink_break()
         else:
             print("Break augmentation.")
             result_img = self.simulate_ink_break()

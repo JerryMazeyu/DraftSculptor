@@ -8,13 +8,30 @@ import pandas as pd
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QLabel, QPushButton, 
                              QLineEdit, QVBoxLayout, QHBoxLayout, QWidget,
                              QScrollArea, QGridLayout, QSizePolicy, QFileDialog)
-from PyQt5.QtGui import (QPixmap, QFont, QImage)
+from PyQt5.QtGui import (QPixmap, QFont, QScreen, QImage)
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 from PIL import Image, ImageDraw, ImageFont
 from utils import *
 import shutil
 
 
+def disable_all_buttons(layout):
+    """
+    禁用布局中的所有按钮。
+    """
+    for i in range(layout.count()):
+        widget = layout.itemAt(i).widget()
+        if isinstance(widget, QPushButton):
+            widget.setEnabled(False)
+
+def enable_all_buttons(layout):
+    """
+    启用布局中的所有按钮。
+    """
+    for i in range(layout.count()):
+        widget = layout.itemAt(i).widget()
+        if isinstance(widget, QPushButton):
+            widget.setEnabled(True)
 
 class ImageLabel(QLabel):
     imageChanged = pyqtSignal()
@@ -49,8 +66,6 @@ class ImageLabel(QLabel):
         except:
             self._imgp = None
             self.img = None
-    
-
     
     @pyqtSlot()
     def update_img(self):
@@ -141,7 +156,7 @@ class ImageEditor(QMainWindow):
         
     def initUI(self):
         self.setWindowTitle("DraftSculptor")
-        self.setGeometry(100, 100, 1100, 700)  # Set size
+        self.setGeometry(0, 0, 1920, 1080)  # Set size
 
 
 
@@ -175,18 +190,24 @@ class ImageEditor(QMainWindow):
 
         # =======================Right Layout=======================
         right_layout = QVBoxLayout()
-        right_layout.setSpacing(5)  
+        right_layout.setSpacing(5)
         right_layout.setContentsMargins(0, 0, 0, 0) # No space
 
 
+        # =======================Config Layout=======================
+        self.label = QLabel('暂无配置文件选择。', self)
+        right_layout.addWidget(self.label)
+        
+        
         # =========Top three buttons=========
         button_layout = QHBoxLayout()
         button_layout.setSpacing(5)
         self.import_config_button = QPushButton("导入配置", self)
+        # self.import_configs_button = QPushButton("导入多个配置", self)
         self.save_config_button = QPushButton("保存配置", self)
         self.import_template_button = QPushButton("导入模版", self)
         self.import_template_button.clicked.connect(self.select_image)
-        self.import_config_button.clicked.connect(self.import_config)
+        self.import_config_button.clicked.connect(self.import_config_v2)
         self.save_config_button.clicked.connect(self.save_config)
         button_layout.addWidget(self.import_config_button)
         button_layout.addWidget(self.import_template_button)
@@ -237,6 +258,7 @@ class ImageEditor(QMainWindow):
         
         # =========Add & Remove row button========= 
         add_remove_layout = QHBoxLayout()
+        self.add_remove_layout = add_remove_layout
         self.add_row_button = QPushButton("增加一行", self)
         self.add_row_button.clicked.connect(self.add_row)
         self.remove_row_button = QPushButton("删除最后一行", self)
@@ -274,12 +296,90 @@ class ImageEditor(QMainWindow):
         if file_name:
             self.image_label.imgp = file_name
             self.img = file_name
+            
+    def import_config_v2(self):
+        """
+        打开文件对话框，选择多个 .xlsx 文件。
+        """
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog  # 可选
+        files, _ = QFileDialog.getOpenFileNames(self, "Select XLSX Files", "", "Excel Files (*.xlsx);;All Files (*)", options=options)
+        if len(files) == 1:
+            file_name = files[0]            
+            df = check_format(file_name)
+            if not isinstance(df, pd.DataFrame):
+                print(f"导入的文件({file_name})不是有效的文件。")
+                self.label.setText(f"导入的文件({file_name})不是有效的文件。")
+                return
+            self.conf = df
+            try:
+                if df.empty:
+                    return
+            except:
+                pass
+
+            # Delete formal content
+            for i in reversed(range(self.config_layout.count())):
+                if i >= 0:
+                    widget_to_remove = self.config_layout.itemAt(i).widget()
+                    if widget_to_remove is not None:
+                        widget_to_remove.deleteLater()
+            
+            headers = ["文字", "X", "Y", "大小", "字体"]
+            for i, header in enumerate(headers):
+                label = QLabel(header, self)
+                font = QFont()
+                font.setBold(True)
+                label.setFont(font)
+                self.config_layout.addWidget(label, 0, i, alignment=Qt.AlignTop)
+
+            # Show new content
+            for row in range(len(df)):
+                for col, key in enumerate(["文字", "X", "Y", "大小", "字体"]):
+                    value = df.iloc[row][key]
+                    edit = QLineEdit(self)
+                    edit.setText(str(value))
+                    edit.textChanged.connect(lambda text, row=row, col=key: self.update_conf(text, row, col))
+                    self.config_layout.addWidget(edit, row+1, col, alignment=Qt.AlignTop)
+            
+            print(f"导入配置文件{file_name}。")
+            self.label.setText(f"导入配置文件{file_name}。")
+            self.save_config_button.setEnabled(True)
+            enable_all_buttons(self.add_remove_layout)
+            
+        else:
+            for file_name in files:
+                df = check_format(file_name)
+                if not isinstance(df, pd.DataFrame):
+                    print(f"导入的文件({file_name})不是有效的文件。")
+                    self.label.setText(f"导入的文件({file_name})不是有效的文件。")
+                    return
+            # Delete formal content
+            for i in reversed(range(self.config_layout.count())):
+                if i >= 0:
+                    widget_to_remove = self.config_layout.itemAt(i).widget()
+                    if widget_to_remove is not None:
+                        widget_to_remove.deleteLater()
+            
+            # Show new content
+            for row,file in enumerate(files):
+                value = file
+                edit = QLabel(self)
+                edit.setText(str(value))
+                self.config_layout.addWidget(edit, row+1, 0, alignment=Qt.AlignTop)
+                
+            self.label.setText("配置文件选择如下。")
+            self.save_config_button.setEnabled(False)
+            disable_all_buttons(self.add_remove_layout)
     
     def import_config(self):
         default_folder = pjoin(root(), 'configs')
         file_name, _ = QFileDialog.getOpenFileName(self, "Select File", default_folder, "Excel Files (*.xlsx);;CSV Files (*.csv)")
         if file_name:
             df = check_format(file_name)
+            if not isinstance(df, pd.DataFrame):
+                print(f"导入的文件({file_name})不是有效的文件。")
+                return
             self.conf = df
             try:
                 if df.empty:
@@ -397,7 +497,10 @@ class ImageEditor(QMainWindow):
         default_folder = root()
         file_name, _ = QFileDialog.getSaveFileName(self, "Save File", default_folder, "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)")
         if hasattr(self, "preview_imgp"):
-            shutil.copy(self.preview_imgp, file_name)
+            try:
+                shutil.copy(self.preview_imgp, file_name)
+            except:
+                print(f"Cannot save file at {self.preview_imgp}.")
         else:
             try:
                 flag = draw(self.img, self.conf, file_name)

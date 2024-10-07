@@ -6,23 +6,23 @@ from pathlib import Path
 
 
 # ================================================================
-
-img_path = r'C:\Users\H3C\WorkSpace\GXC\DraftSculptor\demo6.png'  # 需要被解构的图像
-
-mode = "single:李五"  # single:X 指的是所有的字都是统一种，冒号后是该字 multi则只负责分割，需要手动重组 
-para = 8  # 调节参数（如果字内部分离则调大些）
+tar = '梓'
+img_path = f'/Users/mazeyu/NewEra/DraftSculptor/handwrites/{tar}.png'  # 需要被解构的图像
+mode = f"single:{tar}"  # single:X 指的是所有的字都是统一种，冒号后是该字 multi则只负责分割，需要手动重组 
+para = 10  # 调节参数（如果字内部分离则调大些）
+threshold = 100  # 背景色阈值（若背景比较暗则调小）
 # ================================================================
 
 
 
-def clear_background_and_detect_characters(image_path, mode, para):
+def clear_background_and_detect_characters(image_path, mode, para, threshold):
     # 读取图片
     img = cv2.imread(image_path)
     # 将图像转换为灰度图
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     # 应用二值化处理，清除背景，假设背景是白色
-    _, binary_img = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
+    _, binary_img = cv2.threshold(gray, threshold, 255, cv2.THRESH_BINARY_INV)
 
     # 使用形态学操作去除噪声，并将字符区域连接起来
     kernel = np.ones((para,para), np.uint8)
@@ -41,7 +41,7 @@ def clear_background_and_detect_characters(image_path, mode, para):
         cropped_char_rgba = cv2.cvtColor(cropped_char, cv2.COLOR_BGR2BGRA) 
         
         # 设置近似白色和近似黑色的阈值
-        lower_white = np.array([100, 100, 100, 0])  # **背景接近白色的最低值**
+        lower_white = np.array([threshold, threshold, threshold, 0])  # **背景接近白色的最低值**
         upper_white = np.array([255, 255, 255, 255])  # **背景接近白色的最高值**
 
         # 创建掩码，将背景部分设为透明
@@ -56,7 +56,7 @@ def clear_background_and_detect_characters(image_path, mode, para):
     result_dir = os.path.join(root(), "character_result")
     if not os.path.exists(result_dir):
         os.mkdir(result_dir, mode=0o777)
-        
+
     if mode.startswith("single"):
         char_name = mode.split(":")[1]
         result_dir = os.path.join(result_dir, char_name)
@@ -68,4 +68,4 @@ def clear_background_and_detect_characters(image_path, mode, para):
     return True
 
 if __name__ == "__main__":
-    clear_background_and_detect_characters(image_path=img_path, mode=mode, para=para)
+    clear_background_and_detect_characters(image_path=img_path, mode=mode, para=para, threshold=threshold)

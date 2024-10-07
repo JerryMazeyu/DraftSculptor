@@ -33,7 +33,7 @@ def check_format(df_):
         return
     for i, row in df.iterrows():
         if not isinstance(row["文字"], (str, pd._libs.missing.NAType)):
-            print(f"Row {i+1}: '文字' should be a string or a file path.")
+            # print(f"Row {i+1}: '文字' should be a string or a file path.")
             row["文字"] = str(row["文字"])
         if not isinstance(row["X"], (int, float)):
             print(f"Row {i+1}: 'X' should be a number.")
@@ -116,9 +116,20 @@ def remove_white_background(image) -> Image:
 
     return pil_image
 
-# Example usage
-# processed_image = remove_white_background('image_with_white_bg.png')
-# cv2.imwrite('image_no_white_bg.png', processed_image)
+
+CHAR_MAP = [['a', 'A'], ['b', 'B'], ['c', 'C'], ['d', 'D'], ['e', 'E'], ['f', 'F'], ['g', 'G'], ['h', 'H'], ['i', 'I'], ['j', 'J'], ['k', 'K'], ['l', 'L'], ['m', 'M'], ['n', 'N'], ['o', 'O'], ['p', 'P'], ['q', 'Q'], ['r', 'R'], ['s', 'S'], ['t', 'T'], ['u', 'U'], ['v', 'V'], ['w', 'W'], ['x', 'X'], ['y', 'Y'], ['z', 'Z'], [',', '，'], ['.', '、'], ['(', '（'], [')', '）'], ['!', '！'], ['?', '？'], ['·', '、'], [' ', '空格'], ['-', '空格']]
+LAY_CAHR_MAP = [item for sublist in CHAR_MAP for item in sublist]
+
+def find_substitude(char: str) -> list:
+    for pair in CHAR_MAP:
+        if char in pair:
+            for x in pair:
+                if x != char:
+                    return x
+    return None
+
+def can_substitude(char):
+    return char in LAY_CAHR_MAP
 
     
 

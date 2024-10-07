@@ -4,5 +4,6 @@ __pycache__/
 .vscode
 debug.py
 __MACOS__
-# assets/imgs/*
+assets/imgs/*
 assets/imgs/曲线/
+handwrites
