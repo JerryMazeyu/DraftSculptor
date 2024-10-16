@@ -140,17 +140,21 @@ class ImageLabel(QLabel):
     #     self.setPixmap(self.scaled_pixmap)
 
     def mouseMoveEvent(self, event):
-        mouse_position = event.pos()
-        x = mouse_position.x()
-        y = mouse_position.y()
-        self._get_coord(x, y)
-        self.coord_label.setText(f"X: {self.x_final}, Y: {self.y_final}")
+        try:
+            mouse_position = event.pos()
+            x = mouse_position.x()
+            y = mouse_position.y()
+            self._get_coord(x, y)
+            self.coord_label.setText(f"X: {self.x_final}, Y: {self.y_final}")
+        except:
+            self.coord_label.setText(f"X: -1, Y: -1")
 
 
 class ImageEditor(QMainWindow):
     def __init__(self):
         super().__init__()
         self.conf = None
+        self.confs = {}
         self.img = None
         self.initUI()
         
@@ -312,6 +316,7 @@ class ImageEditor(QMainWindow):
                 self.label.setText(f"导入的文件({file_name})不是有效的文件。")
                 return
             self.conf = df
+            self.confs = {}
             try:
                 if df.empty:
                     return
@@ -348,12 +353,17 @@ class ImageEditor(QMainWindow):
             enable_all_buttons(self.add_remove_layout)
             
         else:
+            tmp_dict = {}
             for file_name in files:
                 df = check_format(file_name)
+                tmp_dict[file_name] = df
                 if not isinstance(df, pd.DataFrame):
                     print(f"导入的文件({file_name})不是有效的文件。")
                     self.label.setText(f"导入的文件({file_name})不是有效的文件。")
                     return
+            
+            self.conf = None
+            self.confs = tmp_dict
             # Delete formal content
             for i in reversed(range(self.config_layout.count())):
                 if i >= 0:
@@ -454,7 +464,7 @@ class ImageEditor(QMainWindow):
                 self.preview_imgp = default_path
                 self.image_label.imgp = self.preview_imgp
         except Exception as e:
-            print(f"An error occurred: {e}")
+            print(f"[1] An error occurred: {e}")
     
     def back_image(self):
         try:
@@ -493,22 +503,40 @@ class ImageEditor(QMainWindow):
 
 
     def generate_image(self):
-        # 生成最终图像逻辑
-        default_folder = root()
-        file_name, _ = QFileDialog.getSaveFileName(self, "Save File", default_folder, "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)")
-        if hasattr(self, "preview_imgp"):
-            try:
-                shutil.copy(self.preview_imgp, file_name)
-            except:
-                print(f"Cannot save file at {self.preview_imgp}.")
+        if not self.conf.empty and self.confs == {}:
+            # 生成最终图像逻辑
+            default_folder = root()
+            file_name, _ = QFileDialog.getSaveFileName(self, "Save File", default_folder, "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)")
+            if hasattr(self, "preview_imgp"):
+                try:
+                    shutil.copy(self.preview_imgp, file_name)
+                except:
+                    print(f"Cannot save file at {self.preview_imgp}.")
+            else:
+                try:
+                    flag = draw(self.img, self.conf, file_name)
+                    if flag:
+                        self.preview_imgp = file_name
+                        self.image_label.imgp = self.preview_imgp
+                except Exception as e:
+                    print(f"[2] An error occurred: {e}")
         else:
-            try:
-                flag = draw(self.img, self.conf, file_name)
-                if flag:
-                    self.preview_imgp = file_name
-                    self.image_label.imgp = self.preview_imgp
-            except Exception as e:
-                print(f"An error occurred: {e}")
+            save_root = pjoin(root(), 'tmp')
+            if not os.path.exists(save_root):
+                os.makedirs(save_root)
+            for key, df in self.confs.items():
+                try:
+                    self.label.setText(f"正在生成{key}...")
+                    name = os.path.splitext(os.path.split(key)[-1])[0]
+                    save_p = pjoin(save_root, f'{name}.png')
+                    flag = draw(self.img, df, save_p)
+                    if flag:
+                        self.label.setText(f"保存至{save_p}。")
+                        # self.preview_imgp = save_p
+                        # self.image_label.imgp = self.preview_imgp
+                except Exception as e:
+                    print(f"[3] An error occurred: {e}")
+            pass
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

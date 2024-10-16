@@ -7,15 +7,15 @@ from datetime import datetime
 
 example_cofig = {
     "一次性": [
-        {"name": "流水号", "position": (910, 1197, 80), "字体": "宋体"},
-        {"name": "车牌号", "position": (1815, 1211, 80), "字体": "宋体"},
-        {"name": "日期", "position": (3121, 1206, 80), "字体": "宋体"},
-        {"name": "收油人员", "position": (2664, 1206, 80), "字体": "宋体"},
+        {"name": "流水号", "position": (910, 1195, 80), "字体": "宋体"},
+        {"name": "车牌号", "position": (1815, 1195, 80), "字体": "宋体"},
+        {"name": "日期", "position": (3121, 1195, 80), "字体": "宋体"},
+        {"name": "收油人员", "position": (2664, 1206, 80), "字体": "hand"},
     ],
     "纵向": [
-        {"name": "餐厅名称", "position": (1083, 1983, 80), "间隔": 113.5, "字体": "宋体"}, 
-        {"name": "桶数", "position": (2089, 1983, 80), "间隔": 113.5, "字体": "宋体"},
-        {"name": "餐厅负责人", "position": (2836, 1983, 80), "间隔": 113.5, "扰动": "100 0"},
+        {"name": "餐厅名称", "position": (1083, 1983, 60), "间隔": 114, "字体": "宋体"}, 
+        {"name": "桶数", "position": (2224, 1983, 80), "间隔": 114, "扰动": "20 10 5"},
+        {"name": "餐厅负责人", "position": (2836, 1983, 80), "间隔": 114, "扰动": "150 10 10"},
         ],
     "系统设置": {"扰动": 0, "字体": "hand"}
 }
@@ -31,9 +31,10 @@ class ConfigGenerator():
         self.index_column = self.conf.get("一次性")[0]['name']
         print(f"通过 {self.index_column} 进行分隔配置文件...")
         self.dfs = self.split_df(self.index_column)
-        for df in self.dfs:
+        for ind, df in enumerate(self.dfs):
             self.format_subexcel(df)
-            break
+            if ind > 10:
+                break
 
 
     def _validate(self, obj, addkey=None):
@@ -63,8 +64,8 @@ class ConfigGenerator():
     
     def sparse_disturb(self, x):
         if isinstance(x, int):  # "扰动": 10
-            return x, x
-        else:  # "扰动": 10 20
+            return x, x, x
+        else:  # "扰动": 10 20 5
             return [int(y) for y in x.split(" ")]
             
         
@@ -72,7 +73,7 @@ class ConfigGenerator():
         data = pd.read_excel(self.file_path)
         key_column = self.fuzzy_search(data, key_column)
         try:
-            data[key_column] = data[key_column].fillna(method='bfill')
+            data[key_column] = data[key_column].fillna(method='ffill')  # 观察流水号
             print(f"将 {key_column} 中的值转为整型。")
             data[key_column] = data[key_column].astype('int')
         except:
@@ -128,28 +129,30 @@ class ConfigGenerator():
                 value = str(df[self.fuzzy_search(df, item["name"])].iloc[0])  # 一次性值全部取第一个
             x, y, size = item["position"]
             if "扰动" in item:
-                x_dis, y_dis = self.sparse_disturb(item["扰动"])
+                x_dis, y_dis, f_dis = self.sparse_disturb(item["扰动"])
             else:
-                x_dis, y_dis = self.sparse_disturb(self.conf["系统设置"]["扰动"])
+                x_dis, y_dis, f_dis = self.sparse_disturb(self.conf["系统设置"]["扰动"])
             x = self.apply_disturbance(x, x_dis)
             y = self.apply_disturbance(y, y_dis)
+            size_dis = int(self.apply_disturbance(size, f_dis))
             font = item['字体'] if '字体' in item else self.conf["系统设置"]["字体"]
-            output_data.append({"文字": value, "X": x, "Y": y, "大小": size, "字体": font})
+            output_data.append({"文字": value, "X": x, "Y": y, "大小": size_dis, "字体": font})
 
         if "纵向" in self.conf:
             for _, conf in enumerate(self.conf["纵向"]):
                 interval = conf["间隔"]
                 name = self.fuzzy_search(df, conf["name"])
                 x, y, size = conf["position"]
-                font = item['字体'] if '字体' in conf else self.conf["系统设置"]["字体"]
+                font = conf['字体'] if '字体' in conf else self.conf["系统设置"]["字体"]
                 for ind, tar_name in enumerate(df[name]):
                     if "扰动" in conf:
-                        x_dis, y_dis = self.sparse_disturb(conf["扰动"])
+                        x_dis, y_dis, f_dis = self.sparse_disturb(conf["扰动"])
                     else:
-                        x_dis, y_dis = self.sparse_disturb(self.conf["系统设置"]["扰动"])
+                        x_dis, y_dis, f_dis = self.sparse_disturb(self.conf["系统设置"]["扰动"])
+                    size_dis = int(self.apply_disturbance(size, f_dis))
                     disturbed_x = self.apply_disturbance(x, x_dis)
                     disturbed_y = self.apply_disturbance(y + ind * interval, y_dis)
-                    output_data.append({"文字": tar_name, "X": disturbed_x, "Y": disturbed_y, "大小": size, "字体": font})
+                    output_data.append({"文字": tar_name, "X": disturbed_x, "Y": disturbed_y, "大小": size_dis, "字体": font})
 
         # Create a DataFrame for the output
         output_df = pd.DataFrame(output_data)
@@ -163,7 +166,10 @@ class ConfigGenerator():
     
 
 if __name__ == "__main__":
-    file = '7K吨餐厅表.xlsx'
+    # file = '7K吨餐厅表.xlsx'
+    # file = '合鑫.xlsx'
+    # file = '创基.xlsx'
+    file = '创银海.xlsx'
     cg = ConfigGenerator(file_path=file, conf=example_cofig)
     
     

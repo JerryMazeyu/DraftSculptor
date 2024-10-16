@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 # ================================================================
-tar = '梓'
+tar = '涂改'
 img_path = f'/Users/mazeyu/NewEra/DraftSculptor/handwrites/{tar}.png'  # 需要被解构的图像
 mode = f"single:{tar}"  # single:X 指的是所有的字都是统一种，冒号后是该字 multi则只负责分割，需要手动重组 
 para = 10  # 调节参数（如果字内部分离则调大些）

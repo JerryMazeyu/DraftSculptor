@@ -6,4 +6,6 @@ debug.py
 __MACOS__
 assets/imgs/*
 assets/imgs/曲线/
-handwrites
+handwrites/
+character_result/
+generated*

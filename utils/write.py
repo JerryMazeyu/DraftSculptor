@@ -2,13 +2,14 @@ import os
 import random
 import numpy as np
 import pandas as pd
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
+import cv2
 from utils import root, pjoin, can_substitude, find_substitude
 from collections import Counter
 from .augmentation import Augmentation
 
 
-def find_ttf_file(font_name=None):
+def find_ttf_file(font_name=None, exception=None):
     """
     Finds the path to a TTF file in the specified directory.
     
@@ -23,6 +24,8 @@ def find_ttf_file(font_name=None):
     directory = pjoin(root(), 'assets', 'fonts')
     
     ttf_files = [f for f in os.listdir(directory) if f.endswith('.ttf')]
+    if exception:
+        ttf_files = [x for x in ttf_files if x not in exception]
     
     if not ttf_files:
         raise FileNotFoundError("No TTF files found in the specified directory.")
@@ -128,6 +131,13 @@ def concat_images_horizontally(image_paths, target_height):
     """
     
     images = []
+    for ind in range(len(image_paths)):
+        choices = [pjoin(root(), 'assets', 'imgs', '涂画', x) for x in os.listdir(pjoin(root(), 'assets', 'imgs', '涂画'))]
+        # for _ in range(20):
+        #     choices.append(pjoin(root(), 'assets', 'imgs', '空格', '空格.png'))
+        if random.uniform(0,1) > 0.99:
+            new_element = random.choice(choices)
+            image_paths.insert(ind, new_element)
     
     # Resize images to the specified height and append them to the list
     for image_path in image_paths:
@@ -137,6 +147,27 @@ def concat_images_horizontally(image_paths, target_height):
         aspect_ratio = img.width / img.height
         new_width = int(aspect_ratio * target_height)
         resized_img = img.resize((new_width, target_height))
+        # if random.uniform(0,1) > 0.0:
+        #     _, _, _, a = resized_img.split()
+        #     alpha_blurred = a.filter(ImageFilter.MaxFilter(3))
+        #     try:
+        #         if random.uniform(0,1) > 0.5:
+        #             alpha_eroded = alpha_blurred.filter(ImageFilter.MinFilter(3))
+        #         else:
+        #             alpha_eroded = alpha_blurred
+        #     except:
+        #         alpha_eroded = alpha_blurred
+        #         print(f"无法腐蚀")
+        #     new_image = Image.new("RGBA", resized_img.size, (0, 0, 0, 0))
+        #     pixels = new_image.load()
+        #     alpha_pixels = alpha_eroded.load()
+        #     for y in range(new_image.height):
+        #         for x in range(new_image.width):
+        #             if alpha_pixels[x, y] > 0:  # If pixel is not transparent
+        #                 pixels[x, y] = (0, 0, 0, 255)
+        #     blurred_img = new_image.filter(ImageFilter.GaussianBlur(radius=1))
+        #     final_img = blurred_img.filter(ImageFilter.MedianFilter(size=3))
+        #     resized_img = final_img
         images.append(resized_img)
     
     # Get the total width of the concatenated image
@@ -171,7 +202,7 @@ def use_handswrite(text, font_height: int) -> Image:
 
     combinations = find_all_combinations(directory, text)
     if combinations == []:
-        font_p = find_ttf_file()
+        font_p = find_ttf_file(exception=["宋体"])
         print(f"[Warning] 无法找到 {text} 的手写体, 用字体代替.")
         return text_to_png(text, font_height, font_p)
         # return Image.new('RGBA', (font_height, font_height), (255, 255, 255, 0))
@@ -190,7 +221,6 @@ def use_handswrite(text, font_height: int) -> Image:
             char_path = pjoin(directory, char, f"{img_name}.png")
             solution_list.append(char_path)
         img = concat_images_horizontally(solution_list, font_height)
-        
         return img
 
 def text_to_png(text, font_size, font_path=None, output_path=None):
@@ -209,6 +239,8 @@ def text_to_png(text, font_size, font_path=None, output_path=None):
     
     text_bbox = font.getbbox(text)
     text_width, text_height = text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1]
+    padding = int(font_size * 0.2)  # 保证不会缺失
+    text_height += padding
    
     # Create a new image with a white background
     image = Image.new('RGBA', (text_width, text_height), (255, 255, 255, 0))
@@ -261,8 +293,8 @@ def draw(imgp, conf, output_path="./output_img.png"):
     image = Image.open(imgp)
     for _, row in conf.iterrows():
         text = str(row['文字'])
-        x = int(row['X'])
-        y = int(row['Y'])
+        x = int(float(row['X']))
+        y = int(float(row['Y']))
         size = int(row['大小'])
         font = row['字体']
         if font == 'hand':
@@ -272,9 +304,9 @@ def draw(imgp, conf, output_path="./output_img.png"):
         elif font == 'default':
             font_path = find_ttf_file()
             text_png = text_to_png(text, size, font_path)
-            aug = Augmentation(text_png)
-            text_png_aug = aug.run()
-            image = overlay_png_on_background(image, text_png_aug, (x, y))
+            # aug = Augmentation(text_png)  # 去除图像增强
+            # text_png_aug = aug.run()
+            image = overlay_png_on_background(image, text_png, (x, y))
         else:
             font_path = pjoin(root(), 'assets', 'fonts', f'{font}.ttf')
             if not os.path.exists(font_path):
