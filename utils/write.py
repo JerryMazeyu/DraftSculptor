@@ -131,13 +131,13 @@ def concat_images_horizontally(image_paths, target_height):
     """
     
     images = []
-    for ind in range(len(image_paths)):
-        choices = [pjoin(root(), 'assets', 'imgs', '涂画', x) for x in os.listdir(pjoin(root(), 'assets', 'imgs', '涂画'))]
-        # for _ in range(20):
+    # for ind in range(len(image_paths)):  # 添加涂改（已关闭）
+        # choices = [pjoin(root(), 'assets', 'imgs', '涂画', x) for x in os.listdir(pjoin(root(), 'assets', 'imgs', '涂画'))]
+        # for _ in range(20):  # 添加空格
         #     choices.append(pjoin(root(), 'assets', 'imgs', '空格', '空格.png'))
-        if random.uniform(0,1) > 0.99:
-            new_element = random.choice(choices)
-            image_paths.insert(ind, new_element)
+        # if random.uniform(0,1) > 0.99:  
+        #     new_element = random.choice(choices)
+        #     image_paths.insert(ind, new_element)
     
     # Resize images to the specified height and append them to the list
     for image_path in image_paths:
@@ -147,7 +147,7 @@ def concat_images_horizontally(image_paths, target_height):
         aspect_ratio = img.width / img.height
         new_width = int(aspect_ratio * target_height)
         resized_img = img.resize((new_width, target_height))
-        # if random.uniform(0,1) > 0.0:
+        # if random.uniform(0,1) > 0.0:  # 图像增强（已关闭）
         #     _, _, _, a = resized_img.split()
         #     alpha_blurred = a.filter(ImageFilter.MaxFilter(3))
         #     try:
@@ -202,7 +202,7 @@ def use_handswrite(text, font_height: int) -> Image:
 
     combinations = find_all_combinations(directory, text)
     if combinations == []:
-        font_p = find_ttf_file(exception=["宋体"])
+        font_p = find_ttf_file(exception=["宋体.ttf"])
         print(f"[Warning] 无法找到 {text} 的手写体, 用字体代替.")
         return text_to_png(text, font_height, font_p)
         # return Image.new('RGBA', (font_height, font_height), (255, 255, 255, 0))

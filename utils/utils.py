@@ -131,6 +131,10 @@ def find_substitude(char: str) -> list:
 def can_substitude(char):
     return char in LAY_CAHR_MAP
 
+def write_log(file_path, content):
+    with open(file_path, 'a') as file:
+        file.write(content + '\n')
+
     
 
 if __name__ == "__main__":

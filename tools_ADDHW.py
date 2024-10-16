@@ -6,8 +6,8 @@ from pathlib import Path
 
 
 # ================================================================
-tar = '涂改'
-img_path = f'/Users/mazeyu/NewEra/DraftSculptor/handwrites/{tar}.png'  # 需要被解构的图像
+tar = '邸'
+img_path = f'handwrites\\{tar}.png'  # 需要被解构的图像
 mode = f"single:{tar}"  # single:X 指的是所有的字都是统一种，冒号后是该字 multi则只负责分割，需要手动重组 
 para = 10  # 调节参数（如果字内部分离则调大些）
 threshold = 100  # 背景色阈值（若背景比较暗则调小）
@@ -18,6 +18,10 @@ threshold = 100  # 背景色阈值（若背景比较暗则调小）
 def clear_background_and_detect_characters(image_path, mode, para, threshold):
     # 读取图片
     img = cv2.imread(image_path)
+    if not img:  # 中文windows上无法解析
+        from PIL import Image
+        img_pil = Image.open(img_path)
+        img = np.array(img_pil)
     # 将图像转换为灰度图
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 

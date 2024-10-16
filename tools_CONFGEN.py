@@ -13,11 +13,12 @@ example_cofig = {
         {"name": "收油人员", "position": (2664, 1206, 80), "字体": "hand"},
     ],
     "纵向": [
-        {"name": "餐厅名称", "position": (1083, 1983, 60), "间隔": 114, "字体": "宋体"}, 
+        {"name": "餐厅名", "position": (1083, 1983, 60), "间隔": 114, "字体": "宋体"}, 
         {"name": "桶数", "position": (2224, 1983, 80), "间隔": 114, "扰动": "20 10 5"},
-        {"name": "餐厅负责人", "position": (2836, 1983, 80), "间隔": 114, "扰动": "150 10 10"},
+        {"name": "餐厅负责人", "position": (2836, 1983, 80), "间隔": 114, "扰动": "70 10 10"},
         ],
-    "系统设置": {"扰动": 0, "字体": "hand"}
+    "系统设置": {"扰动": 0, "字体": "hand"},
+    "编号": {"起始值": 0, "position": (680, 1983, 60), "间隔": 114, "字体": "宋体", "跟随": "餐厅名"},
 }
 
 class ConfigGenerator():
@@ -33,8 +34,8 @@ class ConfigGenerator():
         self.dfs = self.split_df(self.index_column)
         for ind, df in enumerate(self.dfs):
             self.format_subexcel(df)
-            if ind > 10:
-                break
+            # if ind > 10:
+            #     break
 
 
     def _validate(self, obj, addkey=None):
@@ -73,7 +74,7 @@ class ConfigGenerator():
         data = pd.read_excel(self.file_path)
         key_column = self.fuzzy_search(data, key_column)
         try:
-            data[key_column] = data[key_column].fillna(method='ffill')  # 观察流水号
+            data[key_column] = data[key_column].fillna(method='bfill')  # 注意观察流水号
             print(f"将 {key_column} 中的值转为整型。")
             data[key_column] = data[key_column].astype('int')
         except:
@@ -137,11 +138,21 @@ class ConfigGenerator():
             size_dis = int(self.apply_disturbance(size, f_dis))
             font = item['字体'] if '字体' in item else self.conf["系统设置"]["字体"]
             output_data.append({"文字": value, "X": x, "Y": y, "大小": size_dis, "字体": font})
+        
+        # 提前找到跟随编号选项
+        follow_name = None
+        if "编号" in self.conf:
+            ind_conf = self.conf["编号"]
+            assert "跟随" in ind_conf, "请确保'跟随'在配置项中， 如\{'跟随': '餐厅名称'\}。"
+            follow_name = ind_conf["跟随"]
 
         if "纵向" in self.conf:
             for _, conf in enumerate(self.conf["纵向"]):
                 interval = conf["间隔"]
                 name = self.fuzzy_search(df, conf["name"])
+                if conf["name"] == follow_name:  # 如果有编号，确定跟随项长度
+                    index_length = len(df[name])
+                    print(f"找到编号跟随项：{follow_name}, 共计跟随{index_length}项。")
                 x, y, size = conf["position"]
                 font = conf['字体'] if '字体' in conf else self.conf["系统设置"]["字体"]
                 for ind, tar_name in enumerate(df[name]):
@@ -151,9 +162,42 @@ class ConfigGenerator():
                         x_dis, y_dis, f_dis = self.sparse_disturb(self.conf["系统设置"]["扰动"])
                     size_dis = int(self.apply_disturbance(size, f_dis))
                     disturbed_x = self.apply_disturbance(x, x_dis)
+                    # 双重随机性添加(X)(仅针对餐厅负责人)
+                    if name == "餐厅负责人":
+                        tmp = random.uniform(0, 1)
+                        if tmp > 0.9:
+                            disturbed_x = disturbed_x + 120
+                        elif tmp < 0.1:
+                            disturbed_x = disturbed_x - 120
                     disturbed_y = self.apply_disturbance(y + ind * interval, y_dis)
+                    # 双重随机性添加(Y)(仅针对餐厅负责人)
+                    if name == "餐厅负责人":
+                        tmp = random.uniform(0, 1)
+                        if tmp > 0.9:
+                            disturbed_y = disturbed_y + 20
+                        elif tmp < 0.1:
+                            disturbed_y = disturbed_y + 20
+                    # 截断文字
+                    if len(str(tar_name)) > 17:
+                        tar_name_old = tar_name
+                        if tar_name.find('(') != -1:
+                            tar_name = tar_name[:tar_name.find('(')]
+                        else:
+                            tar_name = tar_name[:17]
+                        print(f"{tar_name_old} 过长，将进行截断，截断为{tar_name}。")
                     output_data.append({"文字": tar_name, "X": disturbed_x, "Y": disturbed_y, "大小": size_dis, "字体": font})
-
+        
+        if "编号" in self.conf:
+            interval = ind_conf["间隔"]
+            start = ind_conf.get("起始值", 0)
+            x, y, size = ind_conf["position"]
+            font = ind_conf['字体'] if '字体' in ind_conf else self.conf["系统设置"]["字体"]
+            k = 0
+            for i in range(start, index_length):
+                output_data.append({"文字": str(i), "X": int(x), "Y": int(y + k * interval), "大小": size, "字体": font})
+                k += 1
+            print("已添加编号。")
+            
         # Create a DataFrame for the output
         output_df = pd.DataFrame(output_data)
 
@@ -169,7 +213,8 @@ if __name__ == "__main__":
     # file = '7K吨餐厅表.xlsx'
     # file = '合鑫.xlsx'
     # file = '创基.xlsx'
-    file = '创银海.xlsx'
+    # file = '创银海.xlsx'
+    file = "收油单信息\合鑫.xlsx"
     cg = ConfigGenerator(file_path=file, conf=example_cofig)
     
     

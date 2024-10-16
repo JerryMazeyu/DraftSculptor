@@ -305,9 +305,10 @@ class ImageEditor(QMainWindow):
         """
         打开文件对话框，选择多个 .xlsx 文件。
         """
+        default_folder = pjoin(root(), 'configs')
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog  # 可选
-        files, _ = QFileDialog.getOpenFileNames(self, "Select XLSX Files", "", "Excel Files (*.xlsx);;All Files (*)", options=options)
+        files, _ = QFileDialog.getOpenFileNames(self, "Select XLSX Files", default_folder, "Excel Files (*.xlsx);;All Files (*)", options=options)
         if len(files) == 1:
             file_name = files[0]            
             df = check_format(file_name)
@@ -503,40 +504,48 @@ class ImageEditor(QMainWindow):
 
 
     def generate_image(self):
-        if not self.conf.empty and self.confs == {}:
-            # 生成最终图像逻辑
-            default_folder = root()
-            file_name, _ = QFileDialog.getSaveFileName(self, "Save File", default_folder, "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)")
-            if hasattr(self, "preview_imgp"):
-                try:
-                    shutil.copy(self.preview_imgp, file_name)
-                except:
-                    print(f"Cannot save file at {self.preview_imgp}.")
+        # 生成最终图像逻辑
+        try:
+            if self.confs == {}:
+                default_folder = root()
+                file_name, _ = QFileDialog.getSaveFileName(self, "Save File", default_folder, "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)")
+                if hasattr(self, "preview_imgp"):
+                    try:
+                        shutil.copy(self.preview_imgp, file_name)
+                    except:
+                        print(f"Cannot save file at {self.preview_imgp}.")
+                else:
+                    try:
+                        flag = draw(self.img, self.conf, file_name)
+                        if flag:
+                            self.preview_imgp = file_name
+                            self.image_label.imgp = self.preview_imgp
+                    except Exception as e:
+                        print(f"[2] An error occurred: {e}")
             else:
-                try:
-                    flag = draw(self.img, self.conf, file_name)
-                    if flag:
-                        self.preview_imgp = file_name
-                        self.image_label.imgp = self.preview_imgp
-                except Exception as e:
-                    print(f"[2] An error occurred: {e}")
-        else:
-            save_root = pjoin(root(), 'tmp')
-            if not os.path.exists(save_root):
-                os.makedirs(save_root)
-            for key, df in self.confs.items():
-                try:
-                    self.label.setText(f"正在生成{key}...")
-                    name = os.path.splitext(os.path.split(key)[-1])[0]
-                    save_p = pjoin(save_root, f'{name}.png')
-                    flag = draw(self.img, df, save_p)
-                    if flag:
-                        self.label.setText(f"保存至{save_p}。")
-                        # self.preview_imgp = save_p
-                        # self.image_label.imgp = self.preview_imgp
-                except Exception as e:
-                    print(f"[3] An error occurred: {e}")
-            pass
+                save_root = QFileDialog.getExistingDirectory(self, 'Select Folder', root())
+                # save_root = pjoin(root(), 'tmp')
+                if not os.path.exists(save_root):
+                    os.makedirs(save_root)
+                logfile = pjoin(save_root, 'log.txt')
+                for ind, (key, df) in enumerate(self.confs.items()):
+                    try:
+                        write_log(logfile, f"{ind} / {len(self.confs)} 正在生成{key}...")
+                        print(f"{ind} / {len(self.confs)} 正在生成{key}...")
+                        self.label.setText(f"正在生成{key}...")
+                        name = os.path.splitext(os.path.split(key)[-1])[0]
+                        save_p = pjoin(save_root, f'{name}.png')
+                        flag = draw(self.img, df, save_p)
+                        if flag:
+                            print(f"保存至{save_p}")
+                            self.label.setText(f"保存至{save_p}")
+                            # self.preview_imgp = save_p
+                            # self.image_label.imgp = self.preview_imgp
+                    except Exception as e:
+                        print(f"[3] An error occurred: {e}")
+                self.confs = {}
+        except:
+            self.label.setText(f"未检测到任何配置文件。")
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
